@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "260215310644",
+    "project_id": "motors-1be96",
+    "storage_bucket": "motors-1be96.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:260215310644:android:cb86192e55a7cb22f0bd61",
+        "android_client_info": {
+          "package_name": "com.onlyb2b.motors"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAIEv-MIsJK6Vf2eov9icrahXbD13tTD-A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
