@@ -10,8 +10,13 @@ import PaymentPage from "../screens/PaymentPage";
 import RideInProgressScreen from "../screens/RideInProgressScreen";
 import FindingDriverScreen from "../screens/FindingDriverScreen";
 import DriverAcceptedScreen from "../screens/DriverAcceptedScreen";
+import SelectAddressPage from "../screens/SelectAddressPage";
+import SuccessPage from "../screens/SuccessPage";
+import FindingTechnicianScreen from "../screens/FindingTechnicianScreen";
+import DriverAssignedScreen from "../screens/DriverAssignedScreen";
 
-
+// import WaitingForTechnicianPage from "../screens/WaitingForTechnicianPage";
+// import TechnicianAssignedPage from "../screens/TechnicianAssignedPage";
 
 const Stack = createNativeStackNavigator();
 
@@ -25,9 +30,25 @@ export default function MainStack({ user }) {
           <Stack.Screen name="QuotationPage" component={QuotationPage} />
           <Stack.Screen name="PaymentPage" component={PaymentPage} />
           <Stack.Screen name="FindingDriverScreen" component={FindingDriverScreen} />
-<Stack.Screen name="DriverAcceptedScreen" component={DriverAcceptedScreen} />
-<Stack.Screen name="RideInProgressScreen" component={RideInProgressScreen} />
+          <Stack.Screen name="DriverAcceptedScreen" component={DriverAcceptedScreen} />
+          <Stack.Screen name="RideInProgressScreen" component={RideInProgressScreen} />
+          <Stack.Screen name="SelectAddressPage" component={SelectAddressPage} />
+          <Stack.Screen name="SuccessPage" component={SuccessPage} />
+          <Stack.Screen
+  name="FindingTechnicianScreen"
+  component={FindingTechnicianScreen}
+  options={{ headerShown: false }}
+/>
+<Stack.Screen name="DriverAssignedScreen" component={DriverAssignedScreen} />
 
+{/* <Stack.Screen
+  name="WaitingForTechnicianPage"
+  component={WaitingForTechnicianPage}
+/>
+<Stack.Screen
+  name="TechnicianAssignedPage"
+  component={TechnicianAssignedPage}
+/> */}
         </>
       ) : (
         <>

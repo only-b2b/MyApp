@@ -13,6 +13,7 @@ import * as Location from "expo-location";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { API_BASE_URL } from "../config";
+import auth from "@react-native-firebase/auth";
 
 import AddressSearch from "../components/AddressSearch";
 import { getDirections } from "../lib/directions";
@@ -63,6 +64,10 @@ export default function PickDropScreen({ navigation }) {
   const [loadingRoute, setLoadingRoute] = useState(false);
 
   const [selectedVehicle, setSelectedVehicle] = useState(null);
+
+
+  const user = auth().currentUser;
+
 
   // ─────────────────────────────
   // GET DEVICE LOCATION
@@ -168,13 +173,42 @@ export default function PickDropScreen({ navigation }) {
 
   const canContinue = pickup && drop && selectedVehicle && estimatedFare;
 
-const continueToQuotation = () => {
-  navigation.navigate("FindingDriverScreen", {
-  order: buildOrderObject(),
-});
+  if (!user) {
+  alert("Please login again");
+  return;
+}
 
+const continueToQuotation = async () => {
+  const order = buildOrderObject();
 
+  // 1️⃣ Create order
+  const res = await fetch(`${API_BASE_URL}/orders`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+        firebase_uid: user.uid,
+        service_type: "pickdrop",
+        vehicle: order.vehicle.name,
+        distance: order.route.distance,
+        duration: order.route.duration,
+        price: order.pricing.total,
+        pickup: order.location.pickup.description,
+        drop: order.location.drop.description,
+      }),
+
+  });
+
+  const { id } = await res.json();
+
+  // 2️⃣ Send request to drivers (push happens here)
+  await fetch(`${API_BASE_URL}/orders/${id}/request`, {
+    method: "POST",
+  });
+
+  // 3️⃣ Go to finding screen
+  navigation.navigate("FindingDriverScreen", { orderId: id });
 };
+
 
 
   const buildOrderObject = () => {

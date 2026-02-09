@@ -24,6 +24,9 @@ import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { getDirections } from "../lib/directions";
+import auth from "@react-native-firebase/auth";
+import { getAuth } from "@react-native-firebase/auth";
+
 
 const ORANGE = "#FF6B00";
 const ORANGE_LIGHT = "#FFB347";
@@ -109,6 +112,7 @@ const MAP_STYLE = [
 ];
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
+const firebase_uid = getAuth().currentUser?.uid;
 
 const StepContainer = ({ stepKey, children }) => {
   const opacity = useRef(new Animated.Value(0)).current;
@@ -488,6 +492,7 @@ export default function DashboardScreen({ navigation }) {
   };
 const buildOrderObject = () => {
   const activePkg = PACKAGES.find((p) => p.id === selectedPackage);
+
   const kmValue =
     distance && distance.includes("km") ? parseFloat(distance) : 0;
 
@@ -516,17 +521,19 @@ const buildOrderObject = () => {
         VEHICLES.find((v) => v.id === selectedVehicle)?.name || "",
     },
 
-    package: {
-      id: activePkg?.id,
-      name: activePkg?.name,
-      description: activePkg?.desc,
-      base_price: activePkg?.price,
-      eta_min: activePkg?.etaMin,
-    },
+    package: activePkg
+      ? {
+          id: activePkg.id,
+          name: activePkg.name,
+          description: activePkg.desc,
+          base_price: activePkg.price,
+          eta_min: activePkg.etaMin,
+        }
+      : null,
 
     route: {
-      distance,   // "10.2 km"
-      duration,   // "25 mins"
+      distance,
+      duration,
     },
 
     pricing: {
@@ -535,11 +542,11 @@ const buildOrderObject = () => {
       currency: "INR",
     },
 
-    address: null, // 🔴 will be added in QuotationPage
-
+    address: null,
     created_at: new Date().toISOString(),
   };
 };
+
 
   return (
     <View style={{ flex: 1, backgroundColor: CANVAS }}>
@@ -563,15 +570,20 @@ const buildOrderObject = () => {
               }}
             >
               {/* USER MARKER ONLY */}
-              <Marker
-                coordinate={{
-                  latitude: region.lat,
-                  longitude: region.lng,
-                }}
-                title="Your car location"
-              >
-                <Ionicons name="car-sport" size={32} color={ORANGE} />
-              </Marker>
+              {/* 📍 USER LOCATION MARKER */}
+                <Marker
+                  coordinate={{
+                    latitude: region.lat,
+                    longitude: region.lng,
+                  }}
+                  anchor={{ x: 0.5, y: 0.5 }}
+                >
+                  <View style={styles.userMarker}>
+                    <View style={styles.userMarkerInner}>
+                      <Text style={styles.pinEmoji}>📍</Text>
+                    </View>
+                  </View>
+                </Marker>
 
               {/* ROAD PATH to nearest hub (hub marker hidden) */}
               {routeCoords.length > 0 && (
@@ -678,6 +690,29 @@ const styles = StyleSheet.create({
     color: MUTED,
     marginTop: 2,
   },
+userMarker: {
+  width: 46,
+  height: 46,
+  alignItems: "center",
+  justifyContent: "center",
+  shadowOpacity: 0.15,
+  shadowRadius: 6,
+  shadowOffset: { width: 0, height: 3 },
+  elevation: 6,
+},
+
+userMarkerInner: {
+  width: 36,
+  height: 36,
+  borderRadius: 18,
+  alignItems: "center",
+  justifyContent: "center",
+},
+
+pinEmoji: {
+  fontSize: 30,
+  margintop: -19,
+},
 
   // Bottom sheet
   sheetBackground: {

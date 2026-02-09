@@ -14,6 +14,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { API_BASE_URL } from "../config";
+import auth from "@react-native-firebase/auth";
 
 const ORANGE = "#FF6B00";
 const ORANGE_LIGHT = "#FFB347";
@@ -24,6 +25,8 @@ const CARD_BG = "#FFFDFC";
 
 export default function ClientInfoPage({ route, navigation }) {
   const { order } = route.params || {};
+  const user = auth().currentUser;
+  const firebase_uid = user?.uid;
 
   if (!order) {
     Alert.alert("Error", "Invalid order data");
@@ -31,13 +34,10 @@ export default function ClientInfoPage({ route, navigation }) {
     return null;
   }
 
+
   const {
-    service_type,
     vehicle,
     package_name: pkg,
-    hub,
-    distance,
-    duration,
     price,
   } = order;
 
@@ -48,47 +48,71 @@ export default function ClientInfoPage({ route, navigation }) {
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
-    if (!name || !phone || !city) {
-      Alert.alert("Missing Info", "Please fill all required fields.");
-      return;
+  if (!name || !phone || !city || !address.trim()) {
+    Alert.alert("Missing Info", "Please fill all required fields.");
+    return;
+  }
+
+  if (!firebase_uid) {
+    Alert.alert("Error", "User session missing. Please login again.");
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    // 1️⃣ Register / fetch user
+    await fetch(`${API_BASE_URL}/users/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        firebase_uid,
+        name,
+        phone,
+      }),
+    });
+
+    // 2️⃣ Save address
+    const addressRes = await fetch(`${API_BASE_URL}/addresses`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        firebase_uid,
+        label: "Home",
+        address: address.trim(),
+        city: city.trim(),
+      }),
+    });
+
+    if (!addressRes.ok) {
+      const err = await addressRes.json();
+      throw new Error(err.error);
     }
 
-    if (!vehicle) {
-      Alert.alert("Error", "Vehicle missing. Please go back.");
-      return;
-    }
+    // 3️⃣ Save lead
+    await fetch(`${API_BASE_URL}/leads`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        phone,
+        city,
+        vehicle,
+        pkg,
+        price,
+      }),
+    });
 
-    try {
-      setLoading(true);
+    Alert.alert("Success", "Information saved successfully ✅", [
+      { text: "OK", onPress: () => navigation.navigate("PaymentPage", { order }) },
+    ]);
 
-      const res = await fetch(`${API_BASE_URL}/leads`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          phone,
-          city,
-          vehicle,
-          pkg,
-          price,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to save lead");
-      }
-
-      Alert.alert("Success", "Information saved successfully ✅", [
-        { text: "OK", onPress: () => navigation.navigate("PaymentPage", { order }) },
-      ]);
-    } catch (err) {
-      Alert.alert("Error", err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  } catch (err) {
+    Alert.alert("Error", err.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
 
   return (
@@ -106,7 +130,12 @@ export default function ClientInfoPage({ route, navigation }) {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.card}>
           <Text style={styles.label}>Full Name *</Text>
-          <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="John Doe" />
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            placeholder="John Doe"
+          />
 
           <Text style={styles.label}>Phone Number *</Text>
           <TextInput
@@ -118,7 +147,12 @@ export default function ClientInfoPage({ route, navigation }) {
           />
 
           <Text style={styles.label}>City *</Text>
-          <TextInput style={styles.input} value={city} onChangeText={setCity} placeholder="Pune" />
+          <TextInput
+            style={styles.input}
+            value={city}
+            onChangeText={setCity}
+            placeholder="Pune"
+          />
 
           <Text style={styles.label}>Current Address</Text>
           <TextInput

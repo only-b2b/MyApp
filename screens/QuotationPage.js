@@ -9,6 +9,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { API_BASE_URL } from "../config";
+import auth from "@react-native-firebase/auth";
+
 
 const ORANGE = "#FF6B00";
 const ORANGE_LIGHT = "#FFB347";
@@ -19,11 +22,15 @@ const CARD = "#FFFFFF";
 
 export default function QuotationPage({ route, navigation }) {
   const { order } = route.params || {};
-  const [address, setAddress] = useState(order?.address);
+ const firebase_uid = auth().currentUser?.uid;
+
+  const [addresses, setAddresses] = useState([]);
+  const [selectedAddress, setSelectedAddress] = useState(null);
 
   const fade = useRef(new Animated.Value(0)).current;
   const slide = useRef(new Animated.Value(20)).current;
 
+  /* 🔹 Entrance animation */
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fade, {
@@ -39,6 +46,27 @@ export default function QuotationPage({ route, navigation }) {
     ]).start();
   }, []);
 
+  /* 🔹 Fetch addresses */
+  useEffect(() => {
+    if (!firebase_uid) return;
+
+    fetch(`${API_BASE_URL}/addresses/${firebase_uid}`)
+      .then(res => res.json())
+      .then(data => {
+        if (!Array.isArray(data)) return;
+
+        setAddresses(data);
+
+        // ✅ Selection priority
+        const defaultAddr = data.find(a => a.is_default);
+        const recentAddr = data.find(a => a.last_used_at);
+        const fallback = data[0];
+
+        setSelectedAddress(defaultAddr || recentAddr || fallback || null);
+      })
+      .catch(err => console.log("ADDRESS FETCH ERROR:", err));
+  }, [firebase_uid]);
+
   if (!order) {
     return (
       <View style={styles.root}>
@@ -50,8 +78,51 @@ export default function QuotationPage({ route, navigation }) {
   const isCarWash = order.service_type === "car_wash";
   const isDriver = order.service_type === "driver";
 
-  // Address is mandatory only for car wash
-  const canProceed = isDriver || !!address;
+  const canProceed = isDriver || !!selectedAddress;
+
+  // ADD this function inside component
+const sendRequestToTech = async () => {
+  try {
+    // 1️⃣ CREATE ORDER
+    const createRes = await fetch(`${API_BASE_URL}/orders`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        firebase_uid,
+        address_id: selectedAddress?.id || null,
+        service_type: order.service_type,
+        vehicle: order.vehicle?.name || null,
+        package_name: order.package?.name || null,
+        hub: order.hub?.name || null,
+        distance: order.route?.distance,
+        duration: order.route?.duration,
+        price: order.pricing?.total,
+      }),
+    });
+
+    const createdOrder = await createRes.json();
+    if (!createRes.ok) throw new Error(createdOrder.error);
+
+    // 2️⃣ SEND REQUEST USING DB ID
+    const requestRes = await fetch(
+      `${API_BASE_URL}/orders/${createdOrder.id}/request`,
+      { method: "POST" }
+    );
+
+    if (!requestRes.ok) {
+      const err = await requestRes.json();
+      throw new Error(err.error);
+    }
+
+    // 3️⃣ GO TO WAITING SCREEN
+    navigation.replace("FindingTechnicianScreen", {
+      order_id: createdOrder.id,
+    });
+  } catch (err) {
+    alert(err.message);
+  }
+};
+
 
   return (
     <View style={styles.root}>
@@ -79,7 +150,6 @@ export default function QuotationPage({ route, navigation }) {
 
           <Info label="Service" value={order.service_type} />
 
-          {/* ───── CAR WASH DETAILS ───── */}
           {isCarWash && (
             <>
               <Info label="Nearest Hub" value={order.hub?.name} />
@@ -88,37 +158,20 @@ export default function QuotationPage({ route, navigation }) {
             </>
           )}
 
-          {/* ───── DRIVER DETAILS ───── */}
           {isDriver && (
             <>
-              <Info
-                label="Pickup"
-                value={order.location?.pickup?.description}
-              />
-              <Info
-                label="Drop"
-                value={order.location?.drop?.description}
-              />
-              <Info
-                label="Journey Date"
-                value={order.schedule?.date}
-              />
-              <Info
-                label="Pickup Time"
-                value={order.schedule?.time}
-              />
+              <Info label="Pickup" value={order.location?.pickup?.description} />
+              <Info label="Drop" value={order.location?.drop?.description} />
+              <Info label="Journey Date" value={order.schedule?.date} />
+              <Info label="Pickup Time" value={order.schedule?.time} />
               <Info
                 label="Car"
                 value={`${order.car?.brand || ""} ${order.car?.model || ""}`}
               />
-              <Info
-                label="Car Number"
-                value={order.car?.number}
-              />
+              <Info label="Car Number" value={order.car?.number} />
             </>
           )}
 
-          {/* COMMON */}
           <Info label="Distance" value={order.route?.distance} />
           <Info label="Duration" value={order.route?.duration} />
 
@@ -130,13 +183,36 @@ export default function QuotationPage({ route, navigation }) {
           </Text>
         </View>
 
-        {/* ADDRESS (ONLY FOR CAR WASH) */}
+        {/* ADDRESS SECTION */}
         {isCarWash && (
           <View style={styles.card}>
             <Text style={styles.cardHeading}>Service Address</Text>
 
-            {address ? (
-              <Text style={styles.addressText}>{address}</Text>
+            {selectedAddress ? (
+              <>
+                <Text style={styles.addressText}>
+                  {selectedAddress.address}, {selectedAddress.city}
+                </Text>
+
+                {/* ✅ ALWAYS allow change */}
+                <TouchableOpacity
+                  style={styles.addAddressBtn}
+                  onPress={() =>
+                    navigation.navigate("SelectAddressPage", {
+                      firebase_uid,
+                      selectedId: selectedAddress.id,
+                      onSelect: (addr) => setSelectedAddress(addr),
+                    })
+                  }
+                >
+                  <Ionicons
+                    name="swap-horizontal-outline"
+                    size={18}
+                    color={ORANGE}
+                  />
+                  <Text style={styles.addAddressText}>Change address</Text>
+                </TouchableOpacity>
+              </>
             ) : (
               <TouchableOpacity
                 style={styles.addAddressBtn}
@@ -148,42 +224,49 @@ export default function QuotationPage({ route, navigation }) {
                 }
               >
                 <Ionicons name="location-outline" size={20} color={ORANGE} />
-                <Text style={styles.addAddressText}>
-                  Add service address
-                </Text>
+                <Text style={styles.addAddressText}>Add service address</Text>
               </TouchableOpacity>
             )}
           </View>
         )}
 
         {/* PROCEED */}
-        <TouchableOpacity
+        {/* <TouchableOpacity
           activeOpacity={0.9}
           disabled={!canProceed}
           onPress={() =>
             navigation.navigate("PaymentPage", {
               order: {
                 ...order,
-                address: isCarWash ? address : order.address,
+                address_id: selectedAddress?.id,
+                address: selectedAddress?.address,
               },
             })
           }
         >
           <LinearGradient
             colors={[ORANGE, ORANGE_LIGHT]}
-            style={[
-              styles.primaryBtn,
-              !canProceed && { opacity: 0.6 },
-            ]}
+            style={[styles.primaryBtn, !canProceed && { opacity: 0.6 }]}
           >
-            <Ionicons
-              name="checkmark-circle-outline"
-              size={20}
-              color="#fff"
-            />
+            <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
             <Text style={styles.primaryText}>Proceed to Payment</Text>
           </LinearGradient>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
+
+<TouchableOpacity
+  activeOpacity={0.9}
+  disabled={!canProceed}
+  onPress={sendRequestToTech}
+>
+  <LinearGradient
+    colors={[ORANGE, ORANGE_LIGHT]}
+    style={[styles.primaryBtn, !canProceed && { opacity: 0.6 }]}
+  >
+    <Ionicons name="send-outline" size={20} color="#fff" />
+    <Text style={styles.primaryText}>Send Request</Text>
+  </LinearGradient>
+</TouchableOpacity>
+
 
         <TouchableOpacity
           activeOpacity={0.9}
@@ -205,12 +288,9 @@ const Info = ({ label, value }) => (
   </View>
 );
 
-// styles remain EXACTLY the same
-
-
+/* 🔹 STYLES UNCHANGED */
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: BG },
-
   header: {
     paddingTop: 55,
     paddingBottom: 25,
@@ -229,7 +309,6 @@ const styles = StyleSheet.create({
   },
   heading: { color: "#fff", fontSize: 22, fontWeight: "800" },
   subHeading: { color: "#fff", opacity: 0.9 },
-
   card: {
     backgroundColor: CARD,
     padding: 20,
@@ -243,7 +322,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     color: DARK,
   },
-
   infoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -251,18 +329,10 @@ const styles = StyleSheet.create({
   },
   infoLabel: { color: MUTED },
   infoValue: { color: DARK, fontWeight: "700", maxWidth: "55%" },
-
   divider: { height: 1, backgroundColor: "#eee", marginVertical: 14 },
-
   priceLabel: { color: MUTED },
   priceValue: { fontSize: 26, fontWeight: "900", color: ORANGE },
-
-  addressText: {
-    fontSize: 14,
-    color: DARK,
-    fontWeight: "600",
-  },
-
+  addressText: { fontSize: 14, color: DARK, fontWeight: "600" },
   addAddressBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -273,7 +343,6 @@ const styles = StyleSheet.create({
     color: ORANGE,
     fontWeight: "700",
   },
-
   primaryBtn: {
     paddingVertical: 14,
     borderRadius: 18,
@@ -287,7 +356,6 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     fontSize: 16,
   },
-
   secondaryBtn: {
     paddingVertical: 13,
     borderRadius: 18,

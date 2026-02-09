@@ -1,119 +1,126 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
-  Animated,
-  Image,
-  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-
-const ORANGE = "#FF6B00";
-const ORANGE_LIGHT = "#FFB347";
-const CHARCOAL = "#1C1C1E";
-const MUTED = "#6B7280";
-const CARD_BG = "#FFFDFC";
-const CANVAS = "#FFF9F5";
+import { API_BASE_URL } from "../config";
+import { getAuth } from "@react-native-firebase/auth";
 
 export default function PaymentPage({ route, navigation }) {
-  const { price } = route.params;
+  const { order } = route.params;
   const [selected, setSelected] = useState(null);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const translateAnim = useRef(new Animated.Value(30)).current;
+  const [loading, setLoading] = useState(false);
+  const auth = getAuth();
 
-  const paymentOptions = [
-    {
-      id: "upi",
-      name: "UPI (Google Pay / PhonePe / Paytm)",
-      icon: require("../assets/icons/upi.png"),
-    },
-    {
-      id: "card",
-      name: "Credit / Debit Card",
-      icon: require("../assets/icons/upi.png"),
-    },
-    {
-      id: "netbank",
-      name: "Net Banking",
-      icon: require("../assets/icons/upi.png"),
-    },
-    {
-      id: "wallet",
-      name: "Wallet (Paytm / AmazonPay)",
-      icon: require("../assets/icons/upi.png"),
-    },
-    {
-      id: "cash",
-      name: "Cash on Service",
-      icon: require("../assets/icons/upi.png"),
-    },
+  const methods = [
+    { id: "upi", label: "UPI", icon: "logo-google" },
+    { id: "card", label: "Credit / Debit Card", icon: "card" },
+    { id: "cash", label: "Cash on Delivery", icon: "cash" },
+    { id: "demo", label: "Demo Payment (No Setup)", icon: "flash" },
   ];
 
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
-      Animated.timing(translateAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
-    ]).start();
-  }, []);
+  const payNow = async () => {
+    setLoading(true);
+
+    try {
+      // DEMO PAYMENT → instant success
+      if (selected === "demo") {
+        navigation.replace("SuccessPage", {
+          orderId: "DEMO-" + Date.now(),
+        });
+        return;
+      }
+
+      const res = await fetch(`${API_BASE_URL}/orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firebase_uid: auth.currentUser.uid,
+          address_id: order.address_id,
+          service_type: order.service_type,
+          vehicle: order.vehicle?.name,
+          package_name: order.package?.name,
+          hub: order.hub?.name,
+          distance: order.route?.distance,
+          duration: order.route?.duration,
+          price: order.pricing.total,
+          payment_mode: selected === "cash" ? "cod" : "online",
+          payment_status: selected === "cash" ? "unpaid" : "paid",
+        }),
+      });
+
+      const savedOrder = await res.json();
+
+      navigation.replace("SuccessPage", {
+        orderId: savedOrder.id,
+      });
+    } catch (e) {
+      alert("Payment failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={[ORANGE_LIGHT, ORANGE]} style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={22} color="#fff" />
+      {/* Amount */}
+      <View style={styles.amountBox}>
+        <Text style={styles.amountLabel}>Amount Payable</Text>
+        <Text style={styles.amount}>₹{order.pricing.total}</Text>
+      </View>
+
+      {/* Payment Methods */}
+      <Text style={styles.sectionTitle}>Choose Payment Method</Text>
+
+      {methods.map((m) => (
+        <TouchableOpacity
+          key={m.id}
+          style={[
+            styles.methodCard,
+            selected === m.id && styles.methodSelected,
+          ]}
+          onPress={() => setSelected(m.id)}
+        >
+          <Ionicons
+            name={m.icon}
+            size={22}
+            color={selected === m.id ? "#fff" : "#555"}
+          />
+          <Text
+            style={[
+              styles.methodText,
+              selected === m.id && { color: "#fff" },
+            ]}
+          >
+            {m.label}
+          </Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Payment Options</Text>
-      </LinearGradient>
+      ))}
 
-      <Animated.ScrollView
-        style={{
-          flex: 1,
-          opacity: fadeAnim,
-          transform: [{ translateY: translateAnim }],
-        }}
-        contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
+      {/* Pay Button */}
+      <TouchableOpacity
+        disabled={!selected || loading}
+        onPress={payNow}
+        style={{ marginTop: 30 }}
       >
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryText}>Total Payable Amount</Text>
-          <Text style={styles.summaryPrice}>₹{price}</Text>
-        </View>
-
-        <Text style={styles.sectionTitle}>Choose Payment Method</Text>
-        {paymentOptions.map((opt) => (
-          <TouchableOpacity
-            key={opt.id}
-            activeOpacity={0.9}
-            style={[styles.optionCard, selected === opt.id && styles.optionActive]}
-            onPress={() => setSelected(opt.id)}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Image source={opt.icon} style={styles.optionIcon} />
-              <Text style={styles.optionText}>{opt.name}</Text>
-            </View>
-            {selected === opt.id && (
-              <Ionicons name="checkmark-circle" size={22} color={ORANGE} />
-            )}
-          </TouchableOpacity>
-        ))}
-
-        {selected && (
-          <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={() => {
-              // Add your payment integration or success animation
-              navigation.navigate("SuccessPage", { payment: selected, amount: price });
-            }}
-          >
-            <LinearGradient colors={[ORANGE_LIGHT, ORANGE]} style={styles.payBtn}>
-              <Ionicons name="wallet-outline" size={18} color="#fff" />
-              <Text style={styles.payText}>Pay Now</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
-      </Animated.ScrollView>
+        <LinearGradient
+          colors={!selected ? ["#ccc", "#aaa"] : ["#4facfe", "#00f2fe"]}
+          style={styles.payButton}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.payText}>
+              {selected === "cash" ? "Place Order" : "Pay Now"}
+            </Text>
+          )}
+        </LinearGradient>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -121,103 +128,55 @@ export default function PaymentPage({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: CANVAS,
+    padding: 20,
+    backgroundColor: "#f5f7fb",
   },
-  header: {
-    height: 100,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    flexDirection: "row",
-    alignItems: "flex-end",
-    paddingHorizontal: 20,
-    paddingBottom: 18,
-  },
-  backBtn: {
-    backgroundColor: "rgba(255,255,255,0.2)",
-    borderRadius: 50,
-    padding: 4,
-    marginRight: 8,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#fff",
-  },
-  summaryCard: {
-    backgroundColor: CARD_BG,
+  amountBox: {
+    backgroundColor: "#fff",
+    padding: 20,
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 18,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 4,
+    marginBottom: 20,
+    elevation: 3,
   },
-  summaryText: {
-    color: MUTED,
-    fontWeight: "600",
+  amountLabel: {
     fontSize: 14,
+    color: "#777",
   },
-  summaryPrice: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: ORANGE,
-    marginTop: 6,
+  amount: {
+    fontSize: 28,
+    fontWeight: "700",
+    marginTop: 5,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: CHARCOAL,
+    fontSize: 16,
+    fontWeight: "600",
     marginBottom: 12,
   },
-  optionCard: {
+  methodCard: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#FFFDFC",
+    backgroundColor: "#fff",
+    padding: 15,
     borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "rgba(255,107,0,0.1)",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
+    marginBottom: 12,
     elevation: 2,
   },
-  optionActive: {
-    backgroundColor: "#FFEDE0",
-    borderColor: ORANGE,
+  methodSelected: {
+    backgroundColor: "#4facfe",
   },
-  optionIcon: {
-    width: 36,
-    height: 36,
-    resizeMode: "contain",
-    marginRight: 12,
-  },
-  optionText: {
+  methodText: {
+    marginLeft: 12,
     fontSize: 15,
-    fontWeight: "700",
-    color: CHARCOAL,
-    flexShrink: 1,
+    color: "#333",
   },
-  payBtn: {
-    flexDirection: "row",
+  payButton: {
+    paddingVertical: 16,
+    borderRadius: 30,
     alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 14,
-    paddingVertical: 14,
-    marginTop: 20,
-    shadowColor: ORANGE,
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
   },
   payText: {
     color: "#fff",
-    fontWeight: "700",
     fontSize: 16,
-    marginLeft: 6,
+    fontWeight: "600",
   },
 });

@@ -1,24 +1,23 @@
-// screens/FindingDriverScreen.js
-
 import React, { useEffect } from "react";
-import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-
-const ORANGE = "#FF6B00";
-const ORANGE_LIGHT = "#FFB347";
+import { View, Text, ActivityIndicator } from "react-native";
+import { API_BASE_URL } from "../config";
 
 export default function FindingDriverScreen({ route, navigation }) {
-  const { order } = route.params;
+  const { orderId } = route.params;
 
-  useEffect(() => {
-  const interval = setInterval(async () => {
-    const res = await fetch(`${API_BASE_URL}/orders/${order.id}`);
+useEffect(() => {
+  let interval;
+
+  interval = setInterval(async () => {
+    const res = await fetch(`${API_BASE_URL}/orders/${orderId}`);
     const data = await res.json();
 
     if (data.status === "accepted") {
-      clearInterval(interval);
-      navigation.replace("DriverAcceptedScreen", {
-        order: data,
+      clearInterval(interval); // ✅ STOP polling
+
+      navigation.replace("DriverAssignedScreen", {
+        driver: data.driver,
+        driverLocation: data.driverLocation,
       });
     }
   }, 3000);
@@ -28,18 +27,11 @@ export default function FindingDriverScreen({ route, navigation }) {
 
 
   return (
-    <LinearGradient colors={[ORANGE, ORANGE_LIGHT]} style={styles.root}>
-      <ActivityIndicator size="large" color="#fff" />
-      <Text style={styles.title}>Finding nearby drivers…</Text>
-      <Text style={styles.sub}>
-        Checking availability around your pickup location
+    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      <ActivityIndicator size="large" color="#FF6B00" />
+      <Text style={{ marginTop: 16, fontSize: 16 }}>
+        Finding nearby driver…
       </Text>
-    </LinearGradient>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, justifyContent: "center", alignItems: "center" },
-  title: { color: "#fff", fontSize: 18, fontWeight: "800", marginTop: 20 },
-  sub: { color: "#fff", opacity: 0.9, marginTop: 6 },
-});
