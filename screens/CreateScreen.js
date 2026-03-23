@@ -271,7 +271,7 @@ export default function CreateScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#f6f7fb" }}>
+    <View style={styles.wrapper}>
       <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 20 }} showsVerticalScrollIndicator={false}>
         {/* stepper */}
         <View style={{ flexDirection: "row", justifyContent: "center", marginBottom: 20 }}>
@@ -638,6 +638,6 @@ export default function CreateScreen({ navigation }) {
           </Animated.View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

@@ -1,7 +1,11 @@
-// screens/DriverAcceptedScreen.js
-
-import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Animated,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
@@ -9,28 +13,49 @@ const ORANGE = "#FF6B00";
 const ORANGE_LIGHT = "#FFB347";
 
 export default function DriverAcceptedScreen({ route, navigation }) {
-  const { order, driver, otp } = route.params;
+  const { order } = route.params || {};
+  const driver = order?.driver;
+
+  const slideAnim = useRef(new Animated.Value(100)).current;
+
+  useEffect(() => {
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  if (!driver) {
+    return (
+      <View style={styles.center}>
+        <Text>Loading driver details...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>
       <LinearGradient colors={[ORANGE, ORANGE_LIGHT]} style={styles.header}>
-        <Text style={styles.heading}>Driver Assigned</Text>
-        <Text style={styles.sub}>Share OTP to start ride</Text>
+        <Text style={styles.heading}>Driver Assigned 🚗</Text>
+        <Text style={styles.sub}>Arriving shortly</Text>
       </LinearGradient>
 
-      <View style={styles.card}>
-        <Text style={styles.name}>{driver.full_name}</Text>
-        <Text style={styles.details}>⭐ {driver.rating}</Text>
-        <Text style={styles.details}>{driver.vehicle}</Text>
-        <Text style={styles.details}>📞 {driver.phone}</Text>
-
-        <View style={styles.otpBox}>
-          <Text style={styles.otpLabel}>Your OTP</Text>
-          <Text style={styles.otp}>{otp}</Text>
+      <Animated.View
+        style={[
+          styles.card,
+          { transform: [{ translateY: slideAnim }] },
+        ]}
+      >
+        <View style={styles.row}>
+          <Ionicons name="person-circle" size={60} color={ORANGE} />
+          <View style={{ marginLeft: 15 }}>
+            <Text style={styles.name}>{driver.full_name}</Text>
+            <Text style={styles.vehicle}>{driver.vehicle}</Text>
+            <Text style={styles.phone}>📞 {driver.phone}</Text>
+          </View>
         </View>
-      </View>
-<Text>{driver.full_name}</Text>
-<Text>{driver.phone}</Text>
+      </Animated.View>
+
       <TouchableOpacity
         onPress={() =>
           navigation.replace("RideInProgressScreen", {
@@ -40,7 +65,6 @@ export default function DriverAcceptedScreen({ route, navigation }) {
         }
       >
         <LinearGradient colors={[ORANGE, ORANGE_LIGHT]} style={styles.btn}>
-          <Ionicons name="car-outline" size={20} color="#fff" />
           <Text style={styles.btnText}>Start Ride</Text>
         </LinearGradient>
       </TouchableOpacity>
@@ -49,29 +73,32 @@ export default function DriverAcceptedScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#fff" },
-  header: { paddingTop: 60, paddingBottom: 30, alignItems: "center" },
+  root: { flex: 1, backgroundColor: "#F9F9FA" },
+  header: {
+    paddingTop: 60,
+    paddingBottom: 30,
+    alignItems: "center",
+  },
   heading: { color: "#fff", fontSize: 22, fontWeight: "900" },
   sub: { color: "#fff", opacity: 0.9 },
-  card: { margin: 20, padding: 20, borderRadius: 16, elevation: 4 },
-  name: { fontSize: 18, fontWeight: "800" },
-  details: { color: "#555", marginTop: 4 },
-  otpBox: {
-    marginTop: 20,
-    alignItems: "center",
-    padding: 16,
-    backgroundColor: "#FFF4E8",
-    borderRadius: 12,
+  card: {
+    backgroundColor: "#fff",
+    margin: 20,
+    padding: 20,
+    borderRadius: 18,
+    elevation: 5,
   },
-  otpLabel: { color: "#555" },
-  otp: { fontSize: 32, fontWeight: "900", color: ORANGE },
+  row: { flexDirection: "row", alignItems: "center" },
+  name: { fontSize: 18, fontWeight: "800" },
+  vehicle: { color: "#666", marginTop: 4 },
+  phone: { marginTop: 4 },
   btn: {
     marginHorizontal: 20,
     paddingVertical: 14,
     borderRadius: 18,
-    flexDirection: "row",
-    justifyContent: "center",
+    alignItems: "center",
     marginTop: 10,
   },
-  btnText: { color: "#fff", fontWeight: "800", marginLeft: 6 },
+  btnText: { color: "#fff", fontWeight: "800", fontSize: 16 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
 });

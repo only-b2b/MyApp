@@ -10,7 +10,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { API_BASE_URL } from "../config";
 
 export default function SelectAddressPage({ route, navigation }) {
-  const { firebase_uid, selectedId, onSelect } = route.params;
+  const { firebase_uid, selectedId } = route.params;
 
   const [addresses, setAddresses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -44,8 +44,9 @@ export default function SelectAddressPage({ route, navigation }) {
             addr.id === selectedId && styles.active,
           ]}
           onPress={() => {
-            onSelect(addr);
-            navigation.goBack();
+            navigation.navigate("QuotationPage", {
+              selectedAddress: addr
+            });
           }}
         >
           <Text style={styles.address}>
@@ -57,6 +58,18 @@ export default function SelectAddressPage({ route, navigation }) {
           )}
         </TouchableOpacity>
       ))}
+
+      <TouchableOpacity
+        style={styles.addBtn}
+        onPress={() =>
+          navigation.navigate("ClientInfoPage", {
+            fromAddressManager: true,
+          })
+        }
+      >
+        <Ionicons name="add-circle" size={18} color="#fff" />
+        <Text style={styles.addBtnText}>Add New Address</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -77,6 +90,20 @@ const styles = StyleSheet.create({
     borderColor: "#22c55e",
     backgroundColor: "#f0fdf4",
   },
+  addBtn: {
+  backgroundColor: "#22c55e",
+  padding: 14,
+  borderRadius: 12,
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
+  marginTop: 10,
+},
+addBtnText: {
+  color: "#fff",
+  fontWeight: "700",
+},
   address: { fontWeight: "600" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
 });

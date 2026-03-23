@@ -1,3 +1,4 @@
+// screens/RegisterScreen.js
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -12,15 +13,14 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import auth from "@react-native-firebase/auth";
-import firestore from "@react-native-firebase/firestore";
+import { getApp } from "@react-native-firebase/app";
+import { getAuth, signInWithPhoneNumber } from "@react-native-firebase/auth";
+import { getFirestore, doc, setDoc } from "@react-native-firebase/firestore";
 import { API_BASE_URL } from "../config";
-
 
 const ORANGE = "#FF6B00";
 const ORANGE_LIGHT = "#FFB347";
 const CANVAS = "#FFF9F5";
-const CHARCOAL = "#1C1C1E";
 const MUTED = "#6B7280";
 
 export default function RegisterScreen({ navigation }) {
@@ -37,67 +37,73 @@ export default function RegisterScreen({ navigation }) {
     if (resendTimer > 0) {
       interval = setInterval(() => setResendTimer((t) => t - 1), 1000);
     }
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [resendTimer]);
 
-  // --------------------------
-  // INPUT VALIDATION
-  // --------------------------
   const validateInputs = () => {
-    if (!name.trim()) return Alert.alert("Error", "Enter full name"), false;
+    if (!name.trim()) {
+      Alert.alert("Error", "Enter full name");
+      return false;
+    }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email))
-      return Alert.alert("Error", "Enter valid email"), false;
+    if (!emailRegex.test(email)) {
+      Alert.alert("Error", "Enter valid email");
+      return false;
+    }
 
-    if (!phone.startsWith("+") || phone.length < 10)
-      return Alert.alert("Error", "Use +91XXXXXXXXXX format"), false;
+    if (!phone.startsWith("+") || phone.length < 10) {
+      Alert.alert("Error", "Use +91XXXXXXXXXX format");
+      return false;
+    }
 
     return true;
   };
 
-  // --------------------------
-  // SEND OTP
-  // --------------------------
+  // ✅ SEND OTP - FIXED
   const sendOTP = async () => {
     if (!validateInputs()) return;
 
     setLoading(true);
     try {
-      const confirmation = await auth().signInWithPhoneNumber(phone);
+      const app = getApp();
+      const auth = getAuth(app);
+      
+      const confirmation = await signInWithPhoneNumber(auth, phone);
       setConfirm(confirmation);
       setResendTimer(60);
 
       Alert.alert("OTP Sent", "Please check your SMS.");
     } catch (error) {
       Alert.alert("Error", "Failed to send OTP. Try again.");
-      console.log(error);
+      console.log("Send OTP error:", error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  // --------------------------
-  // VERIFY OTP & SAVE PROFILE
-  // --------------------------
-const verifyOTP = async () => {
-  if (!confirm) return Alert.alert("Error", "Request OTP first");
-  if (code.length < 6) return Alert.alert("Error", "Invalid OTP");
+  // ✅ VERIFY OTP - FIXED
+  const verifyOTP = async () => {
+    if (!confirm) {
+      Alert.alert("Error", "Request OTP first");
+      return;
+    }
 
-  setLoading(true);
-  let uid;
+    if (code.length < 6) {
+      Alert.alert("Error", "Invalid OTP");
+      return;
+    }
 
-  // STEP 1: OTP VERIFY
-  try {
-    const result = await confirm.confirm(code);
-    uid = result.user.uid;
-  } catch (err) {
-    setLoading(false);
-    console.log("OTP ERROR:", err);
-    return Alert.alert("OTP Failed");
-  }
+    setLoading(true);
 
-  // STEP 3: BACKEND API
     try {
+      // Step 1: Verify OTP
+      const result = await confirm.confirm(code);
+      const uid = result.user.uid;
+
+      // Step 2: Call Backend API
       const response = await fetch(`${API_BASE_URL}/users/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -105,23 +111,33 @@ const verifyOTP = async () => {
       });
 
       const data = await response.json();
-      console.log("API RESPONSE:", data);
 
       if (!response.ok) {
         throw new Error(data.error || "API failed");
       }
 
-      Alert.alert("Success", "Registration completed");
-    } catch (err) {
-      console.log("API ERROR:", err);
-      Alert.alert("API Error", err.message);
+      // Step 3: Save to Firestore (optional backup)
+      const app = getApp();
+      const firestore = getFirestore(app);
+      const userRef = doc(firestore, "users", uid);
+      
+      await setDoc(userRef, {
+        name,
+        email,
+        phone,
+        createdAt: new Date().toISOString(),
+      });
+
+      Alert.alert("Success", "Registration completed!");
+      navigation.replace("HomeTabs", { screen: "Home" });
+
+    } catch (error) {
+      Alert.alert("Error", error.message || "Registration failed");
+      console.log("Verify OTP error:", error);
+    } finally {
+      setLoading(false);
     }
-
-
-  setLoading(false);
-};
-
-
+  };
 
   return (
     <LinearGradient colors={[ORANGE_LIGHT, ORANGE]} style={styles.bg}>
@@ -151,6 +167,7 @@ const verifyOTP = async () => {
                   onChangeText={setEmail}
                   placeholder="Your Email"
                   keyboardType="email-address"
+                  autoCapitalize="none"
                 />
 
                 <Text style={styles.label}>Phone Number</Text>
@@ -178,9 +195,7 @@ const verifyOTP = async () => {
                       <>
                         <Ionicons name="send" size={18} color="#fff" />
                         <Text style={styles.buttonText}>
-                          {resendTimer > 0
-                            ? `Resend OTP in ${resendTimer}s`
-                            : "Send OTP"}
+                          {resendTimer > 0 ? `Resend in ${resendTimer}s` : "Send OTP"}
                         </Text>
                       </>
                     )}
@@ -224,7 +239,7 @@ const verifyOTP = async () => {
           </View>
 
           <Text style={styles.footerText}>
-            Already have an account?{" "}
+            {"Already have an account? "}
             <Text style={styles.link} onPress={() => navigation.navigate("Login")}>
               Login
             </Text>
@@ -239,17 +254,8 @@ const styles = StyleSheet.create({
   bg: { flex: 1 },
   container: { flex: 1, justifyContent: "center", paddingHorizontal: 20 },
   title: { fontSize: 30, fontWeight: "800", color: "#fff", marginBottom: 6 },
-  subtitle: {
-    fontSize: 16,
-    color: "rgba(255,255,255,0.8)",
-    marginBottom: 20,
-  },
-  card: {
-    backgroundColor: CANVAS,
-    borderRadius: 20,
-    padding: 20,
-    elevation: 4,
-  },
+  subtitle: { fontSize: 16, color: "rgba(255,255,255,0.8)", marginBottom: 20 },
+  card: { backgroundColor: CANVAS, borderRadius: 20, padding: 20, elevation: 4 },
   label: { fontSize: 14, color: MUTED, marginBottom: 6 },
   input: {
     borderWidth: 1,

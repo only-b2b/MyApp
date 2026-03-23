@@ -19,8 +19,9 @@ import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import AddressSearch from "../components/AddressSearch";
 import RadarPulse from "../components/RadarPulse";
-import { getDistance } from "geolib";
 import { getDirections } from "../lib/directions";
+import auth from "@react-native-firebase/auth";
+import { API_BASE_URL } from "../config";
 
 const ORANGE = "#FF6B00";
 const ORANGE_LIGHT = "#FFB347";
@@ -33,20 +34,6 @@ const MUTED = "#6B7280";
 const BASE_RATE_PER_KM = 12;   // ₹ per KM
 const DRIVER_CHARGE = 100;     // fixed service/driver charge
 
-// Fake pool of drivers around Pune
-const DRIVER_POOL = [
-  { id: 1, lat: 18.5204, lng: 73.8567 },
-  { id: 2, lat: 18.527, lng: 73.845 },
-  { id: 3, lat: 18.533, lng: 73.866 },
-];
-
-// TEMP DRIVER FOR TESTING (ALWAYS AVAILABLE)
-const TEMP_DRIVER = {
-  id: "temp_001",
-  name: "Test Driver (Demo)",
-  experience: "5+ years • Verified",
-  phone: "+91 99999 00000",
-};
 
 
 export default function DriverBookingScreen({ navigation }) {
@@ -202,130 +189,159 @@ export default function DriverBookingScreen({ navigation }) {
   // ─────────────────────────────
   // DRIVER SEARCH FLOW (1 KM)
   // ─────────────────────────────
-  const findDriver = () => {
-    if (!pickup || !drop) {
-      alert("Please select pickup and drop locations.");
-      return;
-    }
-    if (!carDetailsFilled) {
-      alert("Please complete car details first.");
-      openCarSheet();
-      return;
-    }
-    if (!distanceKm) {
-      alert("Still calculating distance. Please wait a moment.");
-      return;
-    }
+// In DriverBookingScreen.js - Replace the findDriver function
 
+const findDriver = async () => {
+  if (!canProceed) return;
+
+  if (!pickup || !drop || routeCoords.length === 0) {
+    alert("Route not ready yet");
+    return;
+  }
+
+  try {
     setSearchingDriver(true);
 
-    // Simulate scanning animation time
-    setTimeout(() => {
-      // const found = DRIVER_POOL.find((d) => {
-      //   const dist = getDistance(
-      //     { latitude: pickup.location.lat, longitude: pickup.location.lng },
-      //     { latitude: d.lat, longitude: d.lng }
-      //   );
-      //   return dist <= 1000; // 1 km radius
-      // });
+    const user = auth().currentUser;
+    if (!user) {
+      alert("Please login again");
+      return;
+    }
 
-      // if (!found) {
-      //   setSearchingDriver(false);
-      //   alert("No driver available within 1 km at the moment.");
-      //   return;
-      // }
+    // 1️⃣ CREATE ORDER WITH ALL REQUIRED FIELDS
+    const orderPayload = {
+      firebase_uid: user.uid,
+      service_type: "driver",
+      
+      // Vehicle info
+      vehicle: `${carBrand} ${carModel}`,
+      
+      // Route info
+      distance: distanceText,
+      duration: durationText,
+      price: estimatedFare,
+      
+      // Location coordinates
+      pickup_lat: pickup.location.lat,
+      pickup_lng: pickup.location.lng,
+      drop_lat: drop.location.lat,
+      drop_lng: drop.location.lng,
+      
+      // ✅ ADD THESE - ADDRESSES (MISSING BEFORE)
+      pickup: pickup.description,
+      drop: drop.description,
+      
+      // Payment (default to cash for driver service)
+      payment: "cash",
+      
+      // ✅ ADD CAR DETAILS
+      car_details: {
+        brand: carBrand,
+        model: carModel,
+        number: carNumber,
+        fuel_type: fuelType,
+        transmission: transmission,
+        color: carColor,
+        seats: seats,
+        year: year,
+      },
+      
+      // Schedule
+      scheduled_date: selectedDate.toISOString(),
+    };
 
+    console.log("Creating order:", orderPayload); // Debug log
 
-      // 🔥 TEMP: Always accept request for testing
-const found = TEMP_DRIVER;
+    const createRes = await fetch(`${API_BASE_URL}/orders`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(orderPayload),
+    });
 
+    if (!createRes.ok) {
+      const errorData = await createRes.text();
+      console.error("Create order failed:", errorData);
+      throw new Error("Failed to create order");
+    }
 
+    const { id: orderId } = await createRes.json();
+    console.log("Order created:", orderId);
 
+    // 2️⃣ SEND REQUEST TO TECHNICIANS
+    const requestRes = await fetch(`${API_BASE_URL}/orders/${orderId}/request`, {
+      method: "POST",
+    });
 
-      // Small delay to simulate driver confirmation
-      setTimeout(() => {
-        setSearchingDriver(false);
+    if (!requestRes.ok) {
+      throw new Error("Failed to send request");
+    }
 
-        navigation.navigate("QuotationPage", {
-          order: buildOrderObject(),
-        });
+    console.log("Request sent to technicians");
 
-      }, 1500);
-    }, 2000);
-  };
+    // 3️⃣ NAVIGATE WITH ROUTE DATA
+    navigation.navigate("FindingDriverScreen", {
+      orderId,
+      pickup: pickup.location,
+      pickupAddress: pickup.description,
+      drop: drop.location,
+      dropAddress: drop.description,
+      routeCoords: routeCoords,
+      
+      // Vehicle Details
+      vehicleId: "driver",
+      vehicleName: "Professional Driver",
+      vehicleCapacity: seats || 4,
+      
+      // Trip Details
+      distance: distanceText,
+      distanceKm: distanceKm,
+      duration: durationText,
+      durationMinutes: Math.ceil((distanceKm / 30) * 60), // Estimate
+      
+      // Fare Details
+      totalFare: estimatedFare,
+      baseFare: DRIVER_CHARGE,
+      
+      // Payment
+      paymentMethod: "cash",
+    });
+
+  } catch (e) {
+    console.error("Driver booking error:", e);
+    alert(`Unable to find driver: ${e.message}`);
+  } finally {
+    setSearchingDriver(false);
+  }
+};
 
   // Summary for car card
   const carSummary = carDetailsFilled
     ? `${carBrand} ${carModel} • ${carNumber}`
     : "Add car brand, model & number";
-const buildOrderObject = () => {
-  return {
-    service_type: "driver",
+// const buildOrderObject = () => ({
+//   service_type: "driver",
 
-    location: {
-      pickup: {
-        description: pickup?.description,
-        lat: pickup?.location?.lat,
-        lng: pickup?.location?.lng,
-      },
-      drop: {
-        description: drop?.description,
-        lat: drop?.location?.lat,
-        lng: drop?.location?.lng,
-      },
-    },
+//   location: {
+//     pickup: pickup.description,
+//     drop: drop.description,
+//   },
 
-    schedule: {
-      date: selectedDate.toDateString(),
-      time: selectedDate.toLocaleTimeString(),
-    },
+//   route: {
+//     distance: distanceText,
+//     duration: durationText,
+//   },
 
-    // driver: {
-    //   name: "Nearby Professional Driver",
-    //   experience: "Verified & background checked",
-    // },
+//   vehicle: `${carBrand} ${carModel}`,
 
-    driver: {
-      id: TEMP_DRIVER.id,
-      name: TEMP_DRIVER.name,
-      experience: TEMP_DRIVER.experience,
-      phone: TEMP_DRIVER.phone,
-    },
+//   pricing: {
+//     total: estimatedFare,
+//   },
 
-
-    car: {
-      brand: carBrand,
-      model: carModel,
-      number: carNumber,
-      fuel_type: fuelType,
-      transmission,
-      color: carColor,
-      seats,
-      year,
-    },
-
-    route: {
-      distance: distanceText,
-      duration: durationText,
-      distance_km: distanceKm,
-    },
-
-    pricing: {
-      base_rate_per_km: BASE_RATE_PER_KM,
-      driver_charge: DRIVER_CHARGE,
-      total: estimatedFare,
-      currency: "INR",
-    },
-
-    address: {
-      pickup: pickup?.description,
-      drop: drop?.description,
-    },
-
-    created_at: new Date().toISOString(),
-  };
-};
-
+//   schedule: {
+//     date: selectedDate.toDateString(),
+//     time: selectedDate.toLocaleTimeString(),
+//   },
+// });
 
   return (
     <View style={styles.root}>

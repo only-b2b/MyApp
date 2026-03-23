@@ -34,7 +34,6 @@ export default function ClientInfoPage({ route, navigation }) {
     return null;
   }
 
-
   const {
     vehicle,
     package_name: pkg,
@@ -104,7 +103,7 @@ export default function ClientInfoPage({ route, navigation }) {
     });
 
     Alert.alert("Success", "Information saved successfully ✅", [
-      { text: "OK", onPress: () => navigation.navigate("PaymentPage", { order }) },
+      { text: "OK", onPress: () => navigation.goBack() },
     ]);
 
   } catch (err) {

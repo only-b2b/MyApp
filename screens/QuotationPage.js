@@ -1,221 +1,475 @@
 // screens/QuotationPage.js
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { LinearGradient } from "expo-linear-gradient";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  Animated,
-  StyleSheet,
+  View,
   Text,
   TouchableOpacity,
-  View,
+  StyleSheet,
+  ScrollView,
+  Animated,
+  StatusBar,
+  Platform,
+  Dimensions,
+  ActivityIndicator,
 } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { API_BASE_URL } from "../config";
-import auth from "@react-native-firebase/auth";
+import { getAuth } from "@react-native-firebase/auth";
 
+const { width } = Dimensions.get("window");
 
-const ORANGE = "#FF6B00";
-const ORANGE_LIGHT = "#FFB347";
-const DARK = "#1C1C1E";
-const MUTED = "#6B7280";
-const BG = "#FFF7F2";
-const CARD = "#FFFFFF";
+// ==================== DESIGN SYSTEM (Matching DashboardScreen) ====================
+const COLORS = {
+  primary: "#00A86B",
+  primaryLight: "#00C77B",
+  primaryDark: "#008F5B",
+  primaryBg: "rgba(0, 168, 107, 0.08)",
+  primaryBgStrong: "rgba(0, 168, 107, 0.15)",
+
+  secondary: "#3B82F6",
+  accent: "#F59E0B",
+
+  white: "#FFFFFF",
+  background: "#F5F6F8",
+  cardBg: "#FFFFFF",
+  surface: "#F9FAFB",
+  divider: "#E5E7EB",
+  border: "#E0E0E0",
+
+  textDark: "#111111",
+  textPrimary: "#1F2937",
+  textSecondary: "#6B7280",
+  textMuted: "#9CA3AF",
+
+  success: "#10B981",
+  successBg: "#ECFDF5",
+  warning: "#F59E0B",
+  warningBg: "#FFFBEB",
+  error: "#EF4444",
+  errorBg: "#FEF2F2",
+
+  ctaBlack: "#111111",
+  shadow: "#000000",
+};
+
+const SPACING = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xxl: 24,
+  xxxl: 32,
+};
+
+const RADIUS = {
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xxl: 24,
+  full: 100,
+};
 
 export default function QuotationPage({ route, navigation }) {
   const { order } = route.params || {};
- const firebase_uid = auth().currentUser?.uid;
+const firebase_uid = getAuth().currentUser?.uid;
 
   const [addresses, setAddresses] = useState([]);
   const [selectedAddress, setSelectedAddress] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const fade = useRef(new Animated.Value(0)).current;
-  const slide = useRef(new Animated.Value(20)).current;
+  // Animations
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  
+  // Staggered animations for cards
+  const cardAnims = useRef([
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+  ]).current;
 
-  /* 🔹 Entrance animation */
+  // Entrance animations
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fade, {
+      Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 400,
+        duration: 500,
         useNativeDriver: true,
       }),
-      Animated.timing(slide, {
+      Animated.spring(slideAnim, {
         toValue: 0,
-        duration: 400,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 8,
         useNativeDriver: true,
       }),
     ]).start();
+
+    // Staggered card animations
+    cardAnims.forEach((anim, index) => {
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: 400,
+        delay: 150 + index * 100,
+        useNativeDriver: true,
+      }).start();
+    });
   }, []);
 
-  /* 🔹 Fetch addresses */
   useEffect(() => {
-    if (!firebase_uid) return;
+    const unsubscribe = navigation.addListener("focus", () => {
+      if (!firebase_uid) return;
 
-    fetch(`${API_BASE_URL}/addresses/${firebase_uid}`)
-      .then(res => res.json())
-      .then(data => {
-        if (!Array.isArray(data)) return;
+      fetch(`${API_BASE_URL}/addresses/${firebase_uid}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (!Array.isArray(data)) return;
 
-        setAddresses(data);
+          setAddresses(data);
 
-        // ✅ Selection priority
-        const defaultAddr = data.find(a => a.is_default);
-        const recentAddr = data.find(a => a.last_used_at);
-        const fallback = data[0];
+          const defaultAddr = data.find((a) => a.is_default);
+          const recentAddr = data.find((a) => a.last_used_at);
+          const fallback = data[0];
 
-        setSelectedAddress(defaultAddr || recentAddr || fallback || null);
-      })
-      .catch(err => console.log("ADDRESS FETCH ERROR:", err));
-  }, [firebase_uid]);
+          setSelectedAddress(defaultAddr || recentAddr || fallback || null);
+        });
+    });
 
+    return unsubscribe;
+  }, [navigation, firebase_uid]);
+
+  useEffect(() => {
+    if (route.params?.selectedAddress) {
+      setSelectedAddress(route.params.selectedAddress);
+    }
+  }, [route.params?.selectedAddress]);
+
+  // Error state
   if (!order) {
     return (
-      <View style={styles.root}>
-        <Text style={{ color: "red" }}>Invalid quotation data</Text>
+      <View style={styles.errorContainer}>
+        <View style={styles.errorIcon}>
+          <Ionicons name="alert-circle" size={48} color={COLORS.error} />
+        </View>
+        <Text style={styles.errorTitle}>Invalid Quotation</Text>
+        <Text style={styles.errorText}>Unable to load quotation data</Text>
+        <TouchableOpacity
+          style={styles.errorButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.errorButtonText}>Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
   const isCarWash = order.service_type === "car_wash";
   const isDriver = order.service_type === "driver";
-
   const canProceed = isDriver || !!selectedAddress;
+  const pricing = order.pricing;
 
-  // ADD this function inside component
-const sendRequestToTech = async () => {
-  try {
-    // 1️⃣ CREATE ORDER
-    const createRes = await fetch(`${API_BASE_URL}/orders`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        firebase_uid,
-        address_id: selectedAddress?.id || null,
-        service_type: order.service_type,
-        vehicle: order.vehicle?.name || null,
-        package_name: order.package?.name || null,
-        hub: order.hub?.name || null,
-        distance: order.route?.distance,
-        duration: order.route?.duration,
-        price: order.pricing?.total,
-      }),
-    });
+  // Format duration
+  const formatDuration = (min) => {
+    if (!min) return "—";
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return h > 0 ? `${h}h ${m}m` : `${m} min`;
+  };
 
-    const createdOrder = await createRes.json();
-    if (!createRes.ok) throw new Error(createdOrder.error);
+  // Send request to technician
+  const sendRequestToTech = async () => {
+    setIsLoading(true);
+    try {
+      const createRes = await fetch(`${API_BASE_URL}/orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firebase_uid,
+          address_id: selectedAddress?.id || null,
+          service_type: order.service_type,
+          vehicle: order.vehicle?.name || null,
+          package_name: order.package?.name || null,
+          hub: order.hub?.name || null,
+          distance: order.route?.distance,
+          duration: order.route?.duration,
+          price: pricing?.total,
+          pickup_lat: order.location?.lat || null,
+          pickup_lng: order.location?.lng || null,
+          pickup: selectedAddress?.address || null,
+        }),
+      });
 
-    // 2️⃣ SEND REQUEST USING DB ID
-    const requestRes = await fetch(
-      `${API_BASE_URL}/orders/${createdOrder.id}/request`,
-      { method: "POST" }
-    );
+      const createdOrder = await createRes.json();
+      if (!createRes.ok) throw new Error(createdOrder.error);
 
-    if (!requestRes.ok) {
-      const err = await requestRes.json();
-      throw new Error(err.error);
+      const requestRes = await fetch(
+        `${API_BASE_URL}/orders/${createdOrder.id}/request`,
+        { method: "POST" }
+      );
+
+      if (!requestRes.ok) {
+        const err = await requestRes.json();
+        throw new Error(err.error);
+      }
+
+      navigation.replace("FindingTechnicianScreen", {
+        orderId: createdOrder.id,
+        serviceType: order.service_type,
+      });
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setIsLoading(false);
     }
-
-    // 3️⃣ GO TO WAITING SCREEN
-    navigation.replace("FindingTechnicianScreen", {
-      order_id: createdOrder.id,
-    });
-  } catch (err) {
-    alert(err.message);
-  }
-};
-
+  };
 
   return (
-    <View style={styles.root}>
-      {/* HEADER */}
-      <LinearGradient colors={[ORANGE_LIGHT, ORANGE]} style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
-          <Ionicons name="chevron-back" size={22} color="#fff" />
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={22} color={COLORS.textDark} />
         </TouchableOpacity>
 
-        <Text style={styles.heading}>Quotation Summary</Text>
-        <Text style={styles.subHeading}>
-          {order.service_type.replace("_", " ").toUpperCase()}
-        </Text>
-      </LinearGradient>
-
-      {/* BODY */}
-      <Animated.ScrollView
-        style={{ flex: 1, opacity: fade, transform: [{ translateY: slide }] }}
-        contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* BOOKING DETAILS */}
-        <View style={styles.card}>
-          <Text style={styles.cardHeading}>Booking Details</Text>
-
-          <Info label="Service" value={order.service_type} />
-
-          {isCarWash && (
-            <>
-              <Info label="Nearest Hub" value={order.hub?.name} />
-              <Info label="Vehicle" value={order.vehicle?.name} />
-              <Info label="Package" value={order.package?.name} />
-            </>
-          )}
-
-          {isDriver && (
-            <>
-              <Info label="Pickup" value={order.location?.pickup?.description} />
-              <Info label="Drop" value={order.location?.drop?.description} />
-              <Info label="Journey Date" value={order.schedule?.date} />
-              <Info label="Pickup Time" value={order.schedule?.time} />
-              <Info
-                label="Car"
-                value={`${order.car?.brand || ""} ${order.car?.model || ""}`}
-              />
-              <Info label="Car Number" value={order.car?.number} />
-            </>
-          )}
-
-          <Info label="Distance" value={order.route?.distance} />
-          <Info label="Duration" value={order.route?.duration} />
-
-          <View style={styles.divider} />
-
-          <Text style={styles.priceLabel}>Estimated Price</Text>
-          <Text style={styles.priceValue}>
-            ₹{order.pricing?.total?.toLocaleString("en-IN")}
-          </Text>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>Booking Summary</Text>
+          <View style={styles.serviceBadge}>
+            <MaterialCommunityIcons
+              name={isCarWash ? "car-wash" : "steering"}
+              size={12}
+              color={COLORS.primary}
+            />
+            <Text style={styles.serviceBadgeText}>
+              {order.service_type?.replace("_", " ").toUpperCase()}
+            </Text>
+          </View>
         </View>
 
-        {/* ADDRESS SECTION */}
+        <TouchableOpacity style={styles.helpButton}>
+          <Ionicons name="help-circle-outline" size={22} color={COLORS.textDark} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Content */}
+      <Animated.ScrollView
+        style={[
+          styles.scrollView,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
+          },
+        ]}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Service Hub Card */}
+        <Animated.View
+          style={[
+            styles.card,
+            {
+              opacity: cardAnims[0],
+              transform: [
+                {
+                  translateY: cardAnims[0].interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [20, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <View style={styles.hubCard}>
+            <View style={styles.hubIconWrapper}>
+              <Ionicons name="location" size={24} color={COLORS.white} />
+            </View>
+            <View style={styles.hubInfo}>
+              <Text style={styles.hubLabel}>SERVICE HUB</Text>
+              <Text style={styles.hubName}>{order.hub?.name || "—"}</Text>
+              {order.hub?.address && (
+                <Text style={styles.hubAddress}>{order.hub.address}</Text>
+              )}
+            </View>
+            {order.hub?.rating && (
+              <View style={styles.ratingBadge}>
+                <Ionicons name="star" size={12} color={COLORS.warning} />
+                <Text style={styles.ratingText}>{order.hub.rating}</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Route Info */}
+          <View style={styles.routeStrip}>
+            <View style={styles.routeItem}>
+              <Ionicons name="navigate-outline" size={16} color={COLORS.primary} />
+              <Text style={styles.routeValue}>{order.route?.distance || "—"}</Text>
+              <Text style={styles.routeLabel}>Distance</Text>
+            </View>
+            <View style={styles.routeDivider} />
+            <View style={styles.routeItem}>
+              <Ionicons name="time-outline" size={16} color={COLORS.primary} />
+              <Text style={styles.routeValue}>{order.route?.duration || "—"}</Text>
+              <Text style={styles.routeLabel}>Travel Time</Text>
+            </View>
+            <View style={styles.routeDivider} />
+            <View style={styles.routeItem}>
+              <Ionicons name="timer-outline" size={16} color={COLORS.primary} />
+              <Text style={styles.routeValue}>
+                {formatDuration(pricing?.estimatedTime)}
+              </Text>
+              <Text style={styles.routeLabel}>Total Est.</Text>
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* Booking Details Card */}
+        <Animated.View
+          style={[
+            styles.card,
+            {
+              opacity: cardAnims[1],
+              transform: [
+                {
+                  translateY: cardAnims[1].interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [20, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <View style={styles.cardHeader}>
+            <View style={styles.cardIconWrapper}>
+              <Ionicons name="car-sport" size={18} color={COLORS.primary} />
+            </View>
+            <Text style={styles.cardTitle}>Booking Details</Text>
+          </View>
+
+          <View style={styles.detailsContainer}>
+            {/* Vehicle */}
+            <View style={styles.detailRow}>
+              <View style={styles.detailIconBg}>
+                <Ionicons name="car" size={16} color={COLORS.secondary} />
+              </View>
+              <View style={styles.detailInfo}>
+                <Text style={styles.detailLabel}>Vehicle Type</Text>
+                <Text style={styles.detailValue}>{order.vehicle?.name || "—"}</Text>
+              </View>
+            </View>
+
+            {/* Package */}
+            <View style={styles.detailRow}>
+              <View style={[styles.detailIconBg, { backgroundColor: "#F3E8FF" }]}>
+                <Ionicons name="sparkles" size={16} color="#8B5CF6" />
+              </View>
+              <View style={styles.detailInfo}>
+                <Text style={styles.detailLabel}>Package</Text>
+                <Text style={styles.detailValue}>{order.package?.name || "—"}</Text>
+                {order.package?.desc && (
+                  <Text style={styles.detailDesc}>{order.package.desc}</Text>
+                )}
+              </View>
+            </View>
+
+            {/* Features */}
+            {order.package?.features && (
+              <View style={styles.featuresContainer}>
+                <Text style={styles.featuresTitle}>Included Services</Text>
+                <View style={styles.featuresList}>
+                  {order.package.features.map((feature, index) => (
+                    <View key={index} style={styles.featureItem}>
+                      <Ionicons name="checkmark-circle" size={14} color={COLORS.success} />
+                      <Text style={styles.featureText}>{feature}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+          </View>
+        </Animated.View>
+
+        {/* Address Card (Car Wash Only) */}
         {isCarWash && (
-          <View style={styles.card}>
-            <Text style={styles.cardHeading}>Service Address</Text>
+          <Animated.View
+            style={[
+              styles.card,
+              {
+                opacity: cardAnims[2],
+                transform: [
+                  {
+                    translateY: cardAnims[2].interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [20, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <View style={styles.cardHeader}>
+              <View style={[styles.cardIconWrapper, { backgroundColor: COLORS.successBg }]}>
+                <Ionicons name="home" size={18} color={COLORS.success} />
+              </View>
+              <Text style={styles.cardTitle}>Service Address</Text>
+            </View>
 
             {selectedAddress ? (
-              <>
-                <Text style={styles.addressText}>
-                  {selectedAddress.address}, {selectedAddress.city}
-                </Text>
+              <View style={styles.addressContent}>
+                <View style={styles.addressInfo}>
+                  <View style={styles.addressTypeTag}>
+                    <Ionicons
+                      name={
+                        selectedAddress.label === "home"
+                          ? "home"
+                          : selectedAddress.label === "office"
+                          ? "business"
+                          : "location"
+                      }
+                      size={12}
+                      color={COLORS.primary}
+                    />
+                    <Text style={styles.addressTypeText}>
+                      {selectedAddress.label || "Address"}
+                    </Text>
+                  </View>
+                  <Text style={styles.addressText}>{selectedAddress.address}</Text>
+                  {selectedAddress.city && (
+                    <Text style={styles.addressCity}>{selectedAddress.city}</Text>
+                  )}
+                </View>
 
-                {/* ✅ ALWAYS allow change */}
                 <TouchableOpacity
-                  style={styles.addAddressBtn}
+                  style={styles.changeButton}
                   onPress={() =>
                     navigation.navigate("SelectAddressPage", {
                       firebase_uid,
-                      selectedId: selectedAddress.id,
-                      onSelect: (addr) => setSelectedAddress(addr),
+                      selectedId: selectedAddress?.id,
                     })
                   }
                 >
-                  <Ionicons
-                    name="swap-horizontal-outline"
-                    size={18}
-                    color={ORANGE}
-                  />
-                  <Text style={styles.addAddressText}>Change address</Text>
+                  <Text style={styles.changeButtonText}>Change</Text>
+                  <Ionicons name="chevron-forward" size={14} color={COLORS.primary} />
                 </TouchableOpacity>
-              </>
+              </View>
             ) : (
               <TouchableOpacity
-                style={styles.addAddressBtn}
+                style={styles.addAddressButton}
                 onPress={() =>
                   navigation.navigate("ClientInfoPage", {
                     order,
@@ -223,150 +477,735 @@ const sendRequestToTech = async () => {
                   })
                 }
               >
-                <Ionicons name="location-outline" size={20} color={ORANGE} />
-                <Text style={styles.addAddressText}>Add service address</Text>
+                <View style={styles.addAddressIcon}>
+                  <Ionicons name="add" size={20} color={COLORS.primary} />
+                </View>
+                <View style={styles.addAddressInfo}>
+                  <Text style={styles.addAddressTitle}>Add Service Address</Text>
+                  <Text style={styles.addAddressSubtitle}>
+                    Required for service delivery
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
               </TouchableOpacity>
             )}
-          </View>
+          </Animated.View>
         )}
 
-        {/* PROCEED */}
-        {/* <TouchableOpacity
-          activeOpacity={0.9}
-          disabled={!canProceed}
-          onPress={() =>
-            navigation.navigate("PaymentPage", {
-              order: {
-                ...order,
-                address_id: selectedAddress?.id,
-                address: selectedAddress?.address,
-              },
-            })
-          }
+        {/* Price Breakdown Card */}
+        <Animated.View
+          style={[
+            styles.card,
+            styles.priceCard,
+            {
+              opacity: cardAnims[3],
+              transform: [
+                {
+                  translateY: cardAnims[3].interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [20, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
         >
-          <LinearGradient
-            colors={[ORANGE, ORANGE_LIGHT]}
-            style={[styles.primaryBtn, !canProceed && { opacity: 0.6 }]}
-          >
-            <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-            <Text style={styles.primaryText}>Proceed to Payment</Text>
-          </LinearGradient>
-        </TouchableOpacity> */}
+          <View style={styles.priceHeader}>
+            <View style={styles.priceHeaderLeft}>
+              <Ionicons name="receipt-outline" size={18} color={COLORS.primary} />
+              <Text style={styles.priceTitle}>Price Breakdown</Text>
+            </View>
+            <View style={styles.verifiedBadge}>
+              <Ionicons name="shield-checkmark" size={12} color={COLORS.success} />
+              <Text style={styles.verifiedText}>Best Price</Text>
+            </View>
+          </View>
 
-<TouchableOpacity
-  activeOpacity={0.9}
-  disabled={!canProceed}
-  onPress={sendRequestToTech}
->
-  <LinearGradient
-    colors={[ORANGE, ORANGE_LIGHT]}
-    style={[styles.primaryBtn, !canProceed && { opacity: 0.6 }]}
-  >
-    <Ionicons name="send-outline" size={20} color="#fff" />
-    <Text style={styles.primaryText}>Send Request</Text>
-  </LinearGradient>
-</TouchableOpacity>
+          <View style={styles.priceBody}>
+            {/* Package Price */}
+            <View style={styles.priceRow}>
+              <Text style={styles.priceLabel}>
+                {order.package?.name} ({order.vehicle?.name})
+              </Text>
+              <Text style={styles.priceValue}>₹{pricing?.packagePrice || "—"}</Text>
+            </View>
 
+            {/* Distance Charge */}
+            <View style={styles.priceRow}>
+              <Text style={styles.priceLabel}>
+                Distance Charge ({pricing?.distanceKm?.toFixed(1)} km)
+              </Text>
+              <Text style={styles.priceValue}>₹{pricing?.distanceCharge || "—"}</Text>
+            </View>
 
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={styles.secondaryBtn}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="pencil-outline" size={20} color={ORANGE} />
-          <Text style={styles.secondaryText}>Modify Details</Text>
-        </TouchableOpacity>
+            {/* Peak Surge */}
+            {pricing?.peakSurge > 0 && (
+              <View style={styles.priceRow}>
+                <View style={styles.priceLabelRow}>
+                  <Text style={[styles.priceLabel, { color: COLORS.warning }]}>
+                    Peak Hour Surge
+                  </Text>
+                  <View style={styles.peakTag}>
+                    <Ionicons name="flash" size={10} color={COLORS.warning} />
+                    <Text style={styles.peakTagText}>+20%</Text>
+                  </View>
+                </View>
+                <Text style={[styles.priceValue, { color: COLORS.warning }]}>
+                  +₹{pricing.peakSurge}
+                </Text>
+              </View>
+            )}
+
+            {/* Convenience Fee */}
+            <View style={styles.priceRow}>
+              <Text style={styles.priceLabel}>Convenience Fee</Text>
+              <Text style={styles.priceValue}>₹{pricing?.convenienceFee || "—"}</Text>
+            </View>
+
+            {/* Tax */}
+            <View style={styles.priceRow}>
+              <Text style={styles.priceLabel}>GST (18%)</Text>
+              <Text style={styles.priceValue}>₹{pricing?.tax || "—"}</Text>
+            </View>
+
+            <View style={styles.priceDivider} />
+
+            {/* Total */}
+            <View style={styles.totalRow}>
+              <View>
+                <Text style={styles.totalLabel}>Total Amount</Text>
+                <Text style={styles.totalNote}>Inclusive of all taxes</Text>
+              </View>
+              <Text style={styles.totalValue}>
+                ₹{pricing?.total?.toLocaleString("en-IN") || "—"}
+              </Text>
+            </View>
+          </View>
+
+          {/* Savings Banner */}
+          <View style={styles.savingsBanner}>
+            <Ionicons name="pricetag" size={14} color={COLORS.success} />
+            <Text style={styles.savingsText}>
+              You're saving ₹{Math.round((pricing?.total || 0) * 0.15)} with this package!
+            </Text>
+          </View>
+        </Animated.View>
+
+        {/* Payment Info */}
+        <View style={styles.paymentInfo}>
+          <Ionicons name="wallet-outline" size={16} color={COLORS.textSecondary} />
+          <Text style={styles.paymentText}>Pay after service completion</Text>
+        </View>
+
+        {/* Spacer for bottom bar */}
+        <View style={{ height: 100 }} />
       </Animated.ScrollView>
+
+      {/* Bottom Action Bar */}
+      <View style={styles.bottomBar}>
+        <View style={styles.bottomBarContent}>
+          <View style={styles.pricePreview}>
+            <Text style={styles.payLabel}>Total</Text>
+            <Text style={styles.payAmount}>
+              ₹{pricing?.total?.toLocaleString("en-IN") || "—"}
+            </Text>
+          </View>
+
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={styles.modifyButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="create-outline" size={20} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.confirmButton,
+                (!canProceed || isLoading) && styles.confirmButtonDisabled,
+              ]}
+              onPress={sendRequestToTech}
+              disabled={!canProceed || isLoading}
+              activeOpacity={0.85}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color={COLORS.white} />
+              ) : (
+                <>
+                  <Text style={styles.confirmButtonText}>Confirm Booking</Text>
+                  <Ionicons name="arrow-forward" size={18} color={COLORS.white} />
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
     </View>
   );
 }
 
-const Info = ({ label, value }) => (
-  <View style={styles.infoRow}>
-    <Text style={styles.infoLabel}>{label}</Text>
-    <Text style={styles.infoValue}>{value || "—"}</Text>
-  </View>
-);
-
-/* 🔹 STYLES UNCHANGED */
+// ==================== STYLES ====================
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: BG },
-  header: {
-    paddingTop: 55,
-    paddingBottom: 25,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
   },
-  back: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.25)",
-    alignItems: "center",
+
+  // Error State
+  errorContainer: {
+    flex: 1,
     justifyContent: "center",
-    marginBottom: 6,
+    alignItems: "center",
+    backgroundColor: COLORS.background,
+    padding: SPACING.xxl,
   },
-  heading: { color: "#fff", fontSize: 22, fontWeight: "800" },
-  subHeading: { color: "#fff", opacity: 0.9 },
-  card: {
-    backgroundColor: CARD,
-    padding: 20,
-    borderRadius: 16,
-    elevation: 3,
-    marginBottom: 20,
+  errorIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: COLORS.errorBg,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: SPACING.lg,
   },
-  cardHeading: {
+  errorTitle: {
     fontSize: 18,
     fontWeight: "700",
-    marginBottom: 14,
-    color: DARK,
+    color: COLORS.textDark,
+    marginBottom: SPACING.xs,
   },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 10,
+  errorText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xl,
   },
-  infoLabel: { color: MUTED },
-  infoValue: { color: DARK, fontWeight: "700", maxWidth: "55%" },
-  divider: { height: 1, backgroundColor: "#eee", marginVertical: 14 },
-  priceLabel: { color: MUTED },
-  priceValue: { fontSize: 26, fontWeight: "900", color: ORANGE },
-  addressText: { fontSize: 14, color: DARK, fontWeight: "600" },
-  addAddressBtn: {
+  errorButton: {
+    backgroundColor: COLORS.ctaBlack,
+    paddingHorizontal: SPACING.xxl,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.md,
+  },
+  errorButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: COLORS.white,
+  },
+
+  // Header
+  header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
+    justifyContent: "space-between",
+    paddingTop: Platform.OS === "ios" ? 54 : 44,
+    paddingBottom: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
   },
-  addAddressText: {
-    marginLeft: 6,
-    color: ORANGE,
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surface,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerCenter: {
+    alignItems: "center",
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 17,
     fontWeight: "700",
+    color: COLORS.textDark,
   },
-  primaryBtn: {
-    paddingVertical: 14,
-    borderRadius: 18,
+  serviceBadge: {
     flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.primaryBg,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 3,
+    borderRadius: RADIUS.full,
+    marginTop: 4,
+    gap: 4,
+  },
+  serviceBadgeText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: COLORS.primary,
+    letterSpacing: 0.3,
+  },
+  helpButton: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surface,
     justifyContent: "center",
-    marginBottom: 12,
+    alignItems: "center",
   },
-  primaryText: {
-    color: "#fff",
-    fontWeight: "800",
-    marginLeft: 6,
-    fontSize: 16,
+
+  // Scroll View
+  scrollView: {
+    flex: 1,
   },
-  secondaryBtn: {
-    paddingVertical: 13,
-    borderRadius: 18,
-    borderWidth: 1.4,
-    borderColor: ORANGE,
+  scrollContent: {
+    padding: SPACING.lg,
+  },
+
+  // Card Base
+  card: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    marginBottom: SPACING.md,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+    overflow: "hidden",
+  },
+  cardHeader: {
     flexDirection: "row",
-    justifyContent: "center",
+    alignItems: "center",
+    padding: SPACING.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+    gap: SPACING.sm,
   },
-  secondaryText: {
-    color: ORANGE,
+  cardIconWrapper: {
+    width: 32,
+    height: 32,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.primaryBg,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.textDark,
+  },
+
+  // Hub Card
+  hubCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: SPACING.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  hubIconWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: SPACING.md,
+  },
+  hubInfo: {
+    flex: 1,
+  },
+  hubLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: COLORS.textMuted,
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  hubName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.textDark,
+  },
+  hubAddress: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  ratingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.warningBg,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: RADIUS.full,
+    gap: 4,
+  },
+  ratingText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.warning,
+  },
+
+  // Route Strip
+  routeStrip: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: SPACING.md,
+  },
+  routeItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  routeValue: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.textDark,
+    marginTop: 4,
+  },
+  routeLabel: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  routeDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: COLORS.divider,
+  },
+
+  // Details
+  detailsContainer: {
+    padding: SPACING.lg,
+    gap: SPACING.md,
+  },
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: SPACING.md,
+  },
+  detailIconBg: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.sm,
+    backgroundColor: "#DBEAFE",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  detailInfo: {
+    flex: 1,
+  },
+  detailLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: COLORS.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.textDark,
+    marginTop: 2,
+  },
+  detailDesc: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+
+  // Features
+  featuresContainer: {
+    backgroundColor: COLORS.surface,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    marginTop: SPACING.sm,
+  },
+  featuresTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.sm,
+  },
+  featuresList: {
+    gap: SPACING.xs,
+  },
+  featureItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
+  },
+  featureText: {
+    fontSize: 13,
+    color: COLORS.textPrimary,
+  },
+
+  // Address
+  addressContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: SPACING.lg,
+    gap: SPACING.md,
+  },
+  addressInfo: {
+    flex: 1,
+  },
+  addressTypeTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.primaryBg,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 3,
+    borderRadius: RADIUS.sm,
+    alignSelf: "flex-start",
+    marginBottom: SPACING.xs,
+    gap: 4,
+  },
+  addressTypeText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: COLORS.primary,
+    textTransform: "capitalize",
+  },
+  addressText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.textDark,
+    lineHeight: 20,
+  },
+  addressCity: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  changeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.primaryBg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.sm,
+    gap: 4,
+  },
+  changeButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.primary,
+  },
+  addAddressButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: SPACING.lg,
+    gap: SPACING.md,
+  },
+  addAddressIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primaryBg,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  addAddressInfo: {
+    flex: 1,
+  },
+  addAddressTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.textDark,
+  },
+  addAddressSubtitle: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+
+  // Price Card
+  priceCard: {
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  priceHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: COLORS.primaryBg,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+  },
+  priceHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
+  },
+  priceTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.primary,
+  },
+  verifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.successBg,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 3,
+    borderRadius: RADIUS.sm,
+    gap: 4,
+  },
+  verifiedText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: COLORS.success,
+  },
+  priceBody: {
+    padding: SPACING.lg,
+  },
+  priceRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: SPACING.sm,
+  },
+  priceLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
+  },
+  priceLabel: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
+  priceValue: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.textDark,
+  },
+  peakTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.warningBg,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: RADIUS.sm,
+    gap: 2,
+  },
+  peakTagText: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: COLORS.warning,
+  },
+  priceDivider: {
+    height: 1,
+    backgroundColor: COLORS.divider,
+    marginVertical: SPACING.md,
+  },
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  totalLabel: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.textDark,
+  },
+  totalNote: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  totalValue: {
+    fontSize: 22,
     fontWeight: "800",
-    marginLeft: 6,
+    color: COLORS.primary,
+  },
+  savingsBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.successBg,
+    paddingVertical: SPACING.sm,
+    gap: SPACING.sm,
+  },
+  savingsText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: COLORS.success,
+  },
+
+  // Payment Info
+  paymentInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: SPACING.md,
+    gap: SPACING.sm,
+  },
+  paymentText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
+
+  // Bottom Bar
+  bottomBar: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: COLORS.white,
+    paddingTop: SPACING.md,
+    paddingBottom: Platform.OS === "ios" ? 34 : SPACING.lg,
+    paddingHorizontal: SPACING.lg,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.divider,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 20,
+  },
+  bottomBarContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.lg,
+  },
+  pricePreview: {
+    minWidth: 80,
+  },
+  payLabel: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginBottom: 2,
+  },
+  payAmount: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: COLORS.textDark,
+  },
+  actionButtons: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.sm,
+  },
+  modifyButton: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surface,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  confirmButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.ctaBlack,
+    paddingVertical: SPACING.md + 2,
+    borderRadius: RADIUS.md,
+    gap: SPACING.sm,
+  },
+  confirmButtonDisabled: {
+    opacity: 0.4,
+  },
+  confirmButtonText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.white,
   },
 });

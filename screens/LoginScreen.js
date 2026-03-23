@@ -1,3 +1,4 @@
+// screens/LoginScreen.js
 import React, { useState, useRef, useEffect } from "react";
 import {
   View,
@@ -11,24 +12,22 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import auth from "@react-native-firebase/auth";
-import firestore from "@react-native-firebase/firestore";
+import { getApp } from "@react-native-firebase/app";
+import { getAuth, signInWithPhoneNumber } from "@react-native-firebase/auth";
+import { getFirestore, doc, getDoc } from "@react-native-firebase/firestore";
 
 const ORANGE = "#FF6B00";
 const ORANGE_LIGHT = "#FFB347";
 const CANVAS = "#FFF9F5";
 const MUTED = "#6B7280";
-const CHARCOAL = "#1C1C1E";
 
 export default function LoginScreen({ navigation }) {
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [confirm, setConfirm] = useState(null);
   const [loading, setLoading] = useState(false);
-
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -39,9 +38,7 @@ export default function LoginScreen({ navigation }) {
     }).start();
   }, []);
 
-  // ------------------------------------
-  // SEND OTP
-  // ------------------------------------
+  // ✅ SEND OTP - FIXED
   const sendVerification = async () => {
     if (!phone.startsWith("+")) {
       Alert.alert("Invalid Format", "Enter number like +91XXXXXXXXXX");
@@ -50,29 +47,41 @@ export default function LoginScreen({ navigation }) {
 
     try {
       setLoading(true);
-      const confirmation = await auth().signInWithPhoneNumber(phone);
+      
+      const app = getApp();
+      const auth = getAuth(app);
+      
+      const confirmation = await signInWithPhoneNumber(auth, phone);
       setConfirm(confirmation);
+      
       Alert.alert("Success", "OTP Sent Successfully!");
     } catch (error) {
       Alert.alert("Error", error.message);
+      console.log("Send OTP error:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  // ------------------------------------
-  // VERIFY OTP
-  // ------------------------------------
+  // ✅ VERIFY OTP - FIXED
   const confirmCode = async () => {
+    if (!confirm) {
+      Alert.alert("Error", "Please request OTP first");
+      return;
+    }
+
     try {
       setLoading(true);
 
       const result = await confirm.confirm(code);
       const uid = result.user.uid;
-      const userRef = firestore().collection("users").doc(uid);
-      const docSnap = await userRef.get();
 
-      if (!docSnap.exists) {
+      const app = getApp();
+      const firestore = getFirestore(app);
+      const userRef = doc(firestore, "users", uid);
+      const docSnap = await getDoc(userRef);
+
+      if (!docSnap.exists()) {
         Alert.alert("Profile Missing", "You must register before login.");
         navigation.replace("Register");
         return;
@@ -82,11 +91,11 @@ export default function LoginScreen({ navigation }) {
       console.log("USER DATA LOADED:", userData);
 
       Alert.alert("Success", "Login Successful!");
-
-      navigation.replace("HomeTabs", { screen: "Home" }); // VERY IMPORTANT FIX
+      navigation.replace("HomeTabs", { screen: "Home" });
 
     } catch (error) {
-      Alert.alert("Error", "Invalid OTP!");
+      Alert.alert("Error", "Invalid OTP or verification failed");
+      console.log("Verify OTP error:", error);
     } finally {
       setLoading(false);
     }
@@ -99,7 +108,6 @@ export default function LoginScreen({ navigation }) {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-
           <Text style={styles.title}>Welcome Back</Text>
           <Text style={styles.subtitle}>Login to your account</Text>
 
@@ -107,7 +115,6 @@ export default function LoginScreen({ navigation }) {
             {!confirm ? (
               <>
                 <Text style={styles.label}>Phone Number</Text>
-
                 <TextInput
                   style={styles.input}
                   placeholder="+91XXXXXXXXXX"
@@ -120,6 +127,7 @@ export default function LoginScreen({ navigation }) {
                   style={styles.button}
                   onPress={sendVerification}
                   disabled={loading}
+                  activeOpacity={0.8}
                 >
                   <LinearGradient
                     colors={[ORANGE_LIGHT, ORANGE]}
@@ -139,7 +147,6 @@ export default function LoginScreen({ navigation }) {
             ) : (
               <>
                 <Text style={styles.label}>Enter OTP</Text>
-
                 <TextInput
                   style={styles.input}
                   placeholder="6-digit code"
@@ -153,6 +160,7 @@ export default function LoginScreen({ navigation }) {
                   style={styles.button}
                   onPress={confirmCode}
                   disabled={loading}
+                  activeOpacity={0.8}
                 >
                   <LinearGradient
                     colors={[ORANGE_LIGHT, ORANGE]}
@@ -162,11 +170,7 @@ export default function LoginScreen({ navigation }) {
                       <ActivityIndicator color="#fff" />
                     ) : (
                       <>
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={18}
-                          color="#fff"
-                        />
+                        <Ionicons name="checkmark-circle" size={18} color="#fff" />
                         <Text style={styles.buttonText}>Verify & Login</Text>
                       </>
                     )}
@@ -177,11 +181,8 @@ export default function LoginScreen({ navigation }) {
           </View>
 
           <Text style={styles.footerText}>
-            Don’t have an account?{" "}
-            <Text
-              style={styles.link}
-              onPress={() => navigation.navigate("Register")}
-            >
+            {"Don't have an account? "}
+            <Text style={styles.link} onPress={() => navigation.navigate("Register")}>
               Register
             </Text>
           </Text>

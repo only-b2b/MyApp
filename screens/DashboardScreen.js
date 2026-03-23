@@ -13,43 +13,113 @@ import {
   StyleSheet,
   ActivityIndicator,
   Image,
-  ScrollView,
   Animated,
-  Easing,
   Dimensions,
+  Platform,
+  StatusBar,
 } from "react-native";
-import MapView, { Marker, Polyline } from "react-native-maps";
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
-import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
+import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { LinearGradient } from "expo-linear-gradient";
 import { getDirections } from "../lib/directions";
-import auth from "@react-native-firebase/auth";
-import { getAuth } from "@react-native-firebase/auth";
+import ScreenWrapper from "../components/ScreenWrapper";
 
+const { width, height } = Dimensions.get("window");
 
-const ORANGE = "#FF6B00";
-const ORANGE_LIGHT = "#FFB347";
-const CHARCOAL = "#1C1C1E";
-const CANVAS = "#F7F7F8";
-const MUTED = "#6B7280";
-const CARD_BG = "#FFFFFF";
+// ==================== DESIGN SYSTEM ====================
+const COLORS = {
+  primary: "#00A86B",
+  primaryLight: "#00C77B",
+  primaryDark: "#008F5B",
+  primaryBg: "rgba(0, 168, 107, 0.08)",
+  primaryBgStrong: "rgba(0, 168, 107, 0.15)",
 
+  secondary: "#3B82F6",
+  accent: "#F59E0B",
+
+  white: "#FFFFFF",
+  background: "#F5F6F8",
+  cardBg: "#FFFFFF",
+  surface: "#F9FAFB",
+  divider: "#E5E7EB",
+  border: "#E0E0E0",
+
+  textDark: "#111111",
+  textPrimary: "#1F2937",
+  textSecondary: "#6B7280",
+  textMuted: "#9CA3AF",
+
+  success: "#10B981",
+  successBg: "#ECFDF5",
+  warning: "#F59E0B",
+  warningBg: "#FFFBEB",
+  error: "#EF4444",
+  errorBg: "#FEF2F2",
+
+  ctaBlack: "#111111",
+  shadow: "#000000",
+};
+
+const SPACING = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xxl: 24,
+  xxxl: 32,
+};
+
+const RADIUS = {
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xxl: 24,
+  full: 100,
+};
+
+// ==================== PRICING CONFIG ====================
+const PRICING = {
+  perKmRate: 8, // ₹8 per km
+  peakHourMultiplier: 1.2, // 20% extra during peak hours
+  taxRate: 0.18, // 18% GST
+  convenienceFee: 29,
+  minDistance: 2, // Minimum 2 km charge
+};
+
+// ==================== DATA ====================
 const HUBS = [
-  { id: 1, name: "Hub A", lat: 18.5204, lng: 73.8567 },
-  { id: 2, name: "Hub B", lat: 18.5312, lng: 73.845 },
-  { id: 3, name: "Hub C", lat: 18.5055, lng: 73.8652 },
-  { id: 4, name: "Hub D", lat: 18.5511, lng: 73.9416 },
+  { id: 1, name: "SparkleWash Central", lat: 18.5204, lng: 73.8567, rating: 4.8, address: "MG Road, Pune" },
+  { id: 2, name: "CleanRide Hub", lat: 18.5312, lng: 73.845, rating: 4.6, address: "FC Road, Pune" },
+  { id: 3, name: "AutoShine Express", lat: 18.5055, lng: 73.8652, rating: 4.9, address: "Koregaon Park, Pune" },
+  { id: 4, name: "PremiumWash Pro", lat: 18.5511, lng: 73.9416, rating: 4.7, address: "Viman Nagar, Pune" },
 ];
 
 const VEHICLES = [
-  { id: "sedan", name: "Sedan", icon: require("../assets/icons/sedan.png") },
   {
     id: "hatch",
     name: "Hatchback",
+    subtitle: "Swift, i10, Polo, etc.",
     icon: require("../assets/icons/hatchback.png"),
+    multiplier: 1.0,
   },
-  { id: "suv", name: "SUV", icon: require("../assets/icons/suv.png") },
+  {
+    id: "sedan",
+    name: "Sedan",
+    subtitle: "City, Verna, Ciaz, etc.",
+    icon: require("../assets/icons/sedan.png"),
+    popular: true,
+    multiplier: 1.15,
+  },
+  {
+    id: "suv",
+    name: "SUV / MUV",
+    subtitle: "Creta, Seltos, Innova, etc.",
+    icon: require("../assets/icons/suv.png"),
+    multiplier: 1.35,
+  },
 ];
 
 const PACKAGES = [
@@ -57,173 +127,190 @@ const PACKAGES = [
     id: "basic",
     name: "Basic Wash",
     desc: "Exterior rinse & wipe",
-    price: 399,
-    etaMin: 60,
+    basePrice: 299,
+    etaMin: 45,
+    icon: "water-outline",
+    features: ["Exterior wash", "Tyre cleaning", "Window wipe"],
   },
   {
     id: "deluxe",
     name: "Deluxe Wash",
-    desc: "Body wash, wheels & interior vacuum",
-    price: 699,
-    etaMin: 90,
+    desc: "Full body + interior vacuum",
+    basePrice: 549,
+    etaMin: 75,
+    icon: "sparkles-outline",
+    popular: true,
+    features: ["Everything in Basic", "Interior vacuum", "Dashboard polish", "Air freshener"],
   },
   {
     id: "foam",
     name: "Foam Wash",
-    desc: "Snow foam + detailed cleaning",
-    price: 899,
-    etaMin: 120,
+    desc: "Snow foam + ceramic coating",
+    basePrice: 799,
+    etaMin: 90,
+    icon: "cloudy-outline",
+    features: ["Everything in Deluxe", "Snow foam treatment", "Ceramic spray coating", "Alloy cleaning"],
   },
   {
-    id: "superDeluxe",
-    name: "Super Deluxe Wash",
-    desc: "Full body care + polish",
-    price: 1200,
+    id: "premium",
+    name: "Premium Care",
+    desc: "Complete detailing + polish",
+    basePrice: 1299,
     etaMin: 120,
+    icon: "diamond-outline",
+    premium: true,
+    features: ["Everything in Foam", "Full body polish", "Engine bay cleaning", "Leather conditioning", "Scratch removal"],
   },
 ];
 
-// Calm, neutral map style
+// ==================== MAP STYLE ====================
 const MAP_STYLE = [
   { elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
   { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
   { elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
   { elementType: "labels.text.stroke", stylers: [{ color: "#f5f5f5" }] },
-  {
-    featureType: "poi",
-    elementType: "geometry",
-    stylers: [{ color: "#eeeeee" }],
-  },
-  {
-    featureType: "road",
-    elementType: "geometry",
-    stylers: [{ color: "#ffffff" }],
-  },
-  {
-    featureType: "road.highway",
-    elementType: "geometry",
-    stylers: [{ color: "#dadada" }],
-  },
-  {
-    featureType: "water",
-    elementType: "geometry",
-    stylers: [{ color: "#c9e3ff" }],
-  },
+  { featureType: "poi", elementType: "geometry", stylers: [{ color: "#eeeeee" }] },
+  { featureType: "poi.business", stylers: [{ visibility: "off" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#e0e0e0" }] },
+  { featureType: "transit", stylers: [{ visibility: "off" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9e4f4" }] },
 ];
 
-const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
-const firebase_uid = getAuth().currentUser?.uid;
-
-const StepContainer = ({ stepKey, children }) => {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translate = useRef(new Animated.Value(12)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translate, {
-        toValue: 0,
-        duration: 200,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [stepKey]);
-
-  return (
-    <Animated.View style={{ opacity, transform: [{ translateY: translate }] }}>
-      {children}
-    </Animated.View>
-  );
-};
-
+// ==================== MAIN COMPONENT ====================
 export default function DashboardScreen({ navigation }) {
-  const [region, setRegion] = useState(null); // { lat, lng }
+  // States
+  const [region, setRegion] = useState(null);
   const [nearestHub, setNearestHub] = useState(null);
   const [routeCoords, setRouteCoords] = useState([]);
-  const [distance, setDistance] = useState(null); // "10.2 km"
-  const [duration, setDuration] = useState(null); // "25 mins"
-  const [loadingLocation, setLoadingLocation] = useState(true);
+  const [distance, setDistance] = useState(null);
+  const [duration, setDuration] = useState(null);
+  const [distanceValue, setDistanceValue] = useState(0); // numeric km value
+  const [durationValue, setDurationValue] = useState(0); // numeric minutes value
+  const [loading, setLoading] = useState(true);
   const [loadingRoute, setLoadingRoute] = useState(false);
 
-  const [step, setStep] = useState("vehicle"); // "vehicle" | "package"
+  const [step, setStep] = useState("vehicle");
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [selectedPackage, setSelectedPackage] = useState(null);
 
+  // Refs
   const bottomSheetRef = useRef(null);
-  const snapPoints = useMemo(() => ["22%", "45%", "78%"], []);
-  const { height } = Dimensions.get("window");
+  const mapRef = useRef(null);
+  const snapPoints = useMemo(() => ["28%", "55%", "90%"], []);
 
-  // Pulsing FAB animation
-  const pulse = useRef(new Animated.Value(1)).current;
+  // Animation
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, {
-          toValue: 1.04,
-          duration: 900,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulse, {
-          toValue: 1,
-          duration: 900,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [step]);
+
+  // Get Location
+  useEffect(() => {
+    const getLocation = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") {
+          setLoading(false);
+          return;
+        }
+
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        setRegion({
+          lat: loc.coords.latitude,
+          lng: loc.coords.longitude,
+        });
+        setLoading(false);
+      } catch (e) {
+        console.log("Location error:", e);
+        setRegion({ lat: 18.5204, lng: 73.8567 });
+        setLoading(false);
+      }
+    };
+
+    getLocation();
   }, []);
 
-  const usePressScale = () => {
-    const scale = useRef(new Animated.Value(1)).current;
-    const onPressIn = () =>
-      Animated.spring(scale, {
-        toValue: 0.97,
-        useNativeDriver: true,
-        friction: 7,
-        tension: 90,
-      }).start();
-    const onPressOut = () =>
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: true,
-        friction: 7,
-        tension: 90,
-      }).start();
-    return { scale, onPressIn, onPressOut };
+  // Parse distance string to number
+  const parseDistance = (distStr) => {
+    if (!distStr) return 0;
+    const match = distStr.match(/[\d.]+/);
+    return match ? parseFloat(match[0]) : 0;
   };
 
-  // Get user location on mount
-  useEffect(() => {
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        alert("Location permission denied");
-        setLoadingLocation(false);
-        return;
-      }
-      try {
-        const loc = await Location.getCurrentPositionAsync({});
-        const baseRegion = { lat: loc.coords.latitude, lng: loc.coords.longitude };
-        setRegion(baseRegion);
-        setLoadingLocation(false);
-      } catch (e) {
-        console.log(e);
-        setLoadingLocation(false);
-      }
-    })();
-  }, []);
+  // Parse duration string to minutes
+  const parseDuration = (durStr) => {
+    if (!durStr) return 0;
+    const hours = durStr.match(/(\d+)\s*h/);
+    const mins = durStr.match(/(\d+)\s*min/);
+    let total = 0;
+    if (hours) total += parseInt(hours[1]) * 60;
+    if (mins) total += parseInt(mins[1]);
+    return total || parseInt(durStr) || 0;
+  };
 
-  // Find nearest hub whenever region changes
-  const computeNearestHub = useCallback(async () => {
+  // Check if peak hours (9-11 AM, 5-8 PM)
+  const isPeakHour = () => {
+    const hour = new Date().getHours();
+    return (hour >= 9 && hour <= 11) || (hour >= 17 && hour <= 20);
+  };
+
+  // Calculate pricing
+  const calculatePricing = useCallback(() => {
+    if (!selectedPackage || !selectedVehicle) return null;
+
+    const pkg = PACKAGES.find((p) => p.id === selectedPackage);
+    const vehicle = VEHICLES.find((v) => v.id === selectedVehicle);
+    if (!pkg || !vehicle) return null;
+
+    const km = Math.max(distanceValue, PRICING.minDistance);
+    
+    // Base calculations
+    const packagePrice = Math.round(pkg.basePrice * vehicle.multiplier);
+    const distanceCharge = Math.round(km * PRICING.perKmRate);
+    
+    // Subtotal
+    let subtotal = packagePrice + distanceCharge;
+    
+    // Peak hour surge
+    const peakSurge = isPeakHour() ? Math.round(subtotal * (PRICING.peakHourMultiplier - 1)) : 0;
+    subtotal += peakSurge;
+    
+    // Convenience fee
+    subtotal += PRICING.convenienceFee;
+    
+    // Tax
+    const tax = Math.round(subtotal * PRICING.taxRate);
+    
+    // Total
+    const total = subtotal + tax;
+
+    return {
+      packagePrice,
+      distanceCharge,
+      peakSurge,
+      convenienceFee: PRICING.convenienceFee,
+      subtotal,
+      tax,
+      total,
+      isPeakHour: isPeakHour(),
+      distanceKm: km,
+      estimatedTime: pkg.etaMin + durationValue,
+    };
+  }, [selectedPackage, selectedVehicle, distanceValue, durationValue]);
+
+  // Find Nearest Hub
+  const findNearestHub = useCallback(async () => {
     if (!region) return;
 
-    // Select nearest hub using simple distance
     const nearest = HUBS.reduce(
       (prev, curr) => {
         const dist = Math.sqrt(
@@ -237,661 +324,1107 @@ export default function DashboardScreen({ navigation }) {
     if (!nearest) return;
 
     setNearestHub(nearest);
-    bottomSheetRef.current?.snapToIndex(1); // mid-open sheet
+    bottomSheetRef.current?.snapToIndex(1);
 
-    // Fetch route for distance/duration and road path
     try {
       setLoadingRoute(true);
       const data = await getDirections(
         { lat: region.lat, lng: region.lng },
         { lat: nearest.lat, lng: nearest.lng }
       );
+
       if (data) {
         setRouteCoords(data.coords || []);
         setDistance(data.distance || null);
         setDuration(data.duration || null);
+        setDistanceValue(parseDistance(data.distance));
+        setDurationValue(parseDuration(data.duration));
+
+        setTimeout(() => {
+          if (mapRef.current && data.coords?.length > 0) {
+            mapRef.current.fitToCoordinates(data.coords, {
+              edgePadding: {
+                top: height * 0.15,
+                bottom: height * 0.45,
+                left: 50,
+                right: 50,
+              },
+              animated: true,
+            });
+          }
+        }, 100);
       }
     } catch (e) {
-      console.log("Route error", e);
+      console.log("Route error:", e);
     } finally {
       setLoadingRoute(false);
     }
   }, [region]);
 
-  // Run nearest hub logic when region ready
   useEffect(() => {
-    if (!region) return;
-    computeNearestHub();
-  }, [region, computeNearestHub]);
+    if (region) findNearestHub();
+  }, [region]);
 
-  const PrimaryGradientButton = ({ label, onPress, icon }) => {
-    const { scale, onPressIn, onPressOut } = usePressScale();
+  // Helpers
+  const formatDuration = (min) => {
+    if (!min) return "";
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return h > 0 ? `${h}h ${m}m` : `${m} min`;
+  };
+
+  // Build order object
+  const buildOrder = () => {
+    const pkg = PACKAGES.find((p) => p.id === selectedPackage);
+    const vehicle = VEHICLES.find((v) => v.id === selectedVehicle);
+    const pricing = calculatePricing();
+
+    return {
+      service_type: "car_wash",
+      location: region,
+      hub: nearestHub,
+      vehicle: vehicle,
+      package: {
+        ...pkg,
+        calculatedPrice: pricing?.packagePrice,
+      },
+      route: {
+        distance,
+        duration,
+        distanceValue,
+        durationValue,
+      },
+      pricing: pricing,
+      created_at: new Date().toISOString(),
+    };
+  };
+
+  // ==================== COMPONENTS ====================
+
+  // Header Card with Route Info
+  const HeaderCard = () => (
+    <View style={styles.headerCard}>
+      <View style={styles.headerIcon}>
+        <Ionicons name="car-sport" size={20} color={COLORS.white} />
+      </View>
+      <View style={styles.headerInfo}>
+        <Text style={styles.headerTitle}>
+          {nearestHub?.name || "Finding hub..."}
+        </Text>
+        {nearestHub?.address && (
+          <Text style={styles.headerAddress}>{nearestHub.address}</Text>
+        )}
+        <View style={styles.headerMeta}>
+          {distance && (
+            <View style={styles.metaChip}>
+              <Ionicons name="navigate" size={12} color={COLORS.primary} />
+              <Text style={styles.metaChipText}>{distance}</Text>
+            </View>
+          )}
+          {duration && (
+            <View style={styles.metaChip}>
+              <Ionicons name="time" size={12} color={COLORS.primary} />
+              <Text style={styles.metaChipText}>{duration}</Text>
+            </View>
+          )}
+          {nearestHub?.rating && (
+            <View style={[styles.metaChip, styles.ratingChip]}>
+              <Ionicons name="star" size={12} color={COLORS.warning} />
+              <Text style={[styles.metaChipText, { color: COLORS.warning }]}>
+                {nearestHub.rating}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+
+  // Vehicle Item
+  const VehicleItem = ({ item, selected, onPress }) => (
+    <TouchableOpacity
+      style={[styles.vehicleItem, selected && styles.vehicleItemActive]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      {item.popular && (
+        <View style={styles.popularTag}>
+          <Text style={styles.popularText}>POPULAR</Text>
+        </View>
+      )}
+      <Image source={item.icon} style={styles.vehicleIcon} />
+      <View style={styles.vehicleInfo}>
+        <Text style={[styles.vehicleName, selected && styles.vehicleNameActive]}>
+          {item.name}
+        </Text>
+        <Text style={styles.vehicleSubtitle}>{item.subtitle}</Text>
+        {item.multiplier > 1 && (
+          <Text style={styles.vehicleMultiplier}>
+            +{Math.round((item.multiplier - 1) * 100)}% from base
+          </Text>
+        )}
+      </View>
+      <View style={[styles.radioOuter, selected && styles.radioOuterActive]}>
+        {selected && <View style={styles.radioInner} />}
+      </View>
+    </TouchableOpacity>
+  );
+
+  // Package Item
+  const PackageItem = ({ item, selected, onPress }) => {
+    const isSelected = selected === item.id;
+    const vehicle = VEHICLES.find((v) => v.id === selectedVehicle);
+    const calculatedPrice = vehicle
+      ? Math.round(item.basePrice * vehicle.multiplier)
+      : item.basePrice;
+
     return (
-      <Animated.View style={{ transform: [{ scale }] }}>
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPressIn={onPressIn}
-          onPressOut={onPressOut}
-          onPress={onPress}
-        >
-          <LinearGradient
-            colors={[ORANGE_LIGHT, ORANGE]}
-            style={styles.gradientBtn}
-          >
-            {icon && (
-              <Ionicons
-                name={icon}
-                size={18}
-                color="#fff"
-                style={{ marginRight: 8 }}
-              />
+      <TouchableOpacity
+        style={[styles.packageItem, isSelected && styles.packageItemActive]}
+        onPress={onPress}
+        activeOpacity={0.7}
+      >
+        {item.popular && (
+          <View style={[styles.packageTag, { backgroundColor: COLORS.primary }]}>
+            <Text style={styles.packageTagText}>BEST VALUE</Text>
+          </View>
+        )}
+        {item.premium && (
+          <View style={[styles.packageTag, { backgroundColor: "#8B5CF6" }]}>
+            <Text style={styles.packageTagText}>PREMIUM</Text>
+          </View>
+        )}
+
+        <View style={styles.packageRow}>
+          <View style={[styles.packageIcon, isSelected && styles.packageIconActive]}>
+            <Ionicons
+              name={item.icon}
+              size={22}
+              color={isSelected ? COLORS.white : COLORS.primary}
+            />
+          </View>
+
+          <View style={styles.packageInfo}>
+            <Text style={[styles.packageName, isSelected && styles.packageNameActive]}>
+              {item.name}
+            </Text>
+            <Text style={styles.packageDesc}>{item.desc}</Text>
+            <View style={styles.packageEta}>
+              <Ionicons name="time-outline" size={12} color={COLORS.textMuted} />
+              <Text style={styles.packageEtaText}>
+                {formatDuration(item.etaMin + durationValue)} total
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.priceContainer}>
+            <Text style={[styles.packagePrice, isSelected && styles.packagePriceActive]}>
+              ₹{calculatedPrice}
+            </Text>
+            {vehicle?.multiplier > 1 && (
+              <Text style={styles.originalPrice}>₹{item.basePrice}</Text>
             )}
-            <Text style={styles.gradientText}>{label}</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // Enhanced Estimate Card with Full Breakdown
+  const EstimateCard = () => {
+    const pricing = calculatePricing();
+    if (!pricing) return null;
+
+    const pkg = PACKAGES.find((p) => p.id === selectedPackage);
+
+    return (
+      <View style={styles.estimateCard}>
+        <View style={styles.estimateHeader}>
+          <Ionicons name="receipt-outline" size={18} color={COLORS.primary} />
+          <Text style={styles.estimateTitle}>Price Breakdown</Text>
+        </View>
+
+        <View style={styles.estimateBody}>
+          {/* Package Price */}
+          <View style={styles.estimateRow}>
+            <View style={styles.estimateLabelRow}>
+              <Text style={styles.estimateLabel}>{pkg?.name}</Text>
+              <Text style={styles.estimateSub}>
+                (for {VEHICLES.find((v) => v.id === selectedVehicle)?.name})
+              </Text>
+            </View>
+            <Text style={styles.estimateValue}>₹{pricing.packagePrice}</Text>
+          </View>
+
+          {/* Distance Charge */}
+          <View style={styles.estimateRow}>
+            <View style={styles.estimateLabelRow}>
+              <Text style={styles.estimateLabel}>Distance Charge</Text>
+              <Text style={styles.estimateSub}>
+                ({pricing.distanceKm.toFixed(1)} km × ₹{PRICING.perKmRate})
+              </Text>
+            </View>
+            <Text style={styles.estimateValue}>₹{pricing.distanceCharge}</Text>
+          </View>
+
+          {/* Peak Hour Surge */}
+          {pricing.peakSurge > 0 && (
+            <View style={styles.estimateRow}>
+              <View style={styles.estimateLabelRow}>
+                <Text style={[styles.estimateLabel, { color: COLORS.warning }]}>
+                  Peak Hour Surge
+                </Text>
+                <View style={styles.peakBadge}>
+                  <Ionicons name="flash" size={10} color={COLORS.warning} />
+                  <Text style={styles.peakBadgeText}>+20%</Text>
+                </View>
+              </View>
+              <Text style={[styles.estimateValue, { color: COLORS.warning }]}>
+                +₹{pricing.peakSurge}
+              </Text>
+            </View>
+          )}
+
+          {/* Convenience Fee */}
+          <View style={styles.estimateRow}>
+            <Text style={styles.estimateLabel}>Convenience Fee</Text>
+            <Text style={styles.estimateValue}>₹{pricing.convenienceFee}</Text>
+          </View>
+
+          {/* Tax */}
+          <View style={styles.estimateRow}>
+            <Text style={styles.estimateLabel}>GST (18%)</Text>
+            <Text style={styles.estimateValue}>₹{pricing.tax}</Text>
+          </View>
+
+          <View style={styles.estimateDivider} />
+
+          {/* Total */}
+          <View style={styles.estimateRow}>
+            <View>
+              <Text style={styles.estimateTotal}>Total Amount</Text>
+              <Text style={styles.estimateTime}>
+                Est. time: {formatDuration(pricing.estimatedTime)}
+              </Text>
+            </View>
+            <Text style={styles.estimateTotalValue}>₹{pricing.total}</Text>
+          </View>
+        </View>
+
+        {/* Savings Banner */}
+        <View style={styles.savingsBanner}>
+          <Ionicons name="pricetag" size={14} color={COLORS.success} />
+          <Text style={styles.savingsText}>
+            You're saving ₹{Math.round(pricing.total * 0.15)} with this package!
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
+  // Primary Button
+  const PrimaryButton = ({ label, onPress, disabled, icon, loading }) => (
+    <TouchableOpacity
+      style={[styles.primaryBtn, disabled && styles.primaryBtnDisabled]}
+      onPress={onPress}
+      disabled={disabled || loading}
+      activeOpacity={0.85}
+    >
+      {loading ? (
+        <ActivityIndicator size="small" color={COLORS.white} />
+      ) : (
+        <>
+          <Text style={styles.primaryBtnText}>{label}</Text>
+          {icon && (
+            <Ionicons name={icon} size={18} color={COLORS.white} style={{ marginLeft: 8 }} />
+          )}
+        </>
+      )}
+    </TouchableOpacity>
+  );
+
+  // ==================== SHEET CONTENT ====================
+  const renderContent = () => {
+    if (loadingRoute || !nearestHub) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Finding nearest hub...</Text>
+        </View>
+      );
+    }
+
+    return (
+      <Animated.View style={{ opacity: fadeAnim }}>
+        {/* Progress Steps */}
+        <View style={styles.progressBar}>
+          <View style={styles.progressStep}>
+            <View style={[styles.progressDot, styles.progressDotActive]}>
+              {step === "package" && (
+                <Ionicons name="checkmark" size={10} color={COLORS.white} />
+              )}
+            </View>
+            <Text style={[styles.progressLabel, styles.progressLabelActive]}>
+              Vehicle
+            </Text>
+          </View>
+          <View style={[styles.progressLine, step === "package" && styles.progressLineActive]} />
+          <View style={styles.progressStep}>
+            <View style={[styles.progressDot, step === "package" && styles.progressDotActive]} />
+            <Text style={[styles.progressLabel, step === "package" && styles.progressLabelActive]}>
+              Package
+            </Text>
+          </View>
+        </View>
+
+        <HeaderCard />
+
+        {step === "vehicle" ? (
+          <>
+            <Text style={styles.sectionTitle}>Select Vehicle Type</Text>
+            <Text style={styles.sectionSubtitle}>
+              Choose your car type for accurate pricing
+            </Text>
+
+            {VEHICLES.map((v) => (
+              <VehicleItem
+                key={v.id}
+                item={v}
+                selected={selectedVehicle === v.id}
+                onPress={() => setSelectedVehicle(v.id)}
+              />
+            ))}
+
+            <View style={styles.buttonContainer}>
+              <PrimaryButton
+                label="Continue"
+                icon="arrow-forward"
+                onPress={() => {
+                  setStep("package");
+                  bottomSheetRef.current?.snapToIndex(2);
+                }}
+                disabled={!selectedVehicle}
+              />
+            </View>
+          </>
+        ) : (
+          <>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => setStep("vehicle")}
+            >
+              <Ionicons name="chevron-back" size={16} color={COLORS.primary} />
+              <Text style={styles.backBtnText}>Change Vehicle</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.sectionTitle}>Select Package</Text>
+            <Text style={styles.sectionSubtitle}>
+              Choose the perfect wash for your{" "}
+              {VEHICLES.find((v) => v.id === selectedVehicle)?.name}
+            </Text>
+
+            {PACKAGES.map((p) => (
+              <PackageItem
+                key={p.id}
+                item={p}
+                selected={selectedPackage}
+                onPress={() => setSelectedPackage(p.id)}
+              />
+            ))}
+
+            {selectedPackage && <EstimateCard />}
+
+            <View style={styles.buttonContainer}>
+              <PrimaryButton
+                label="View Quotation"
+                icon="document-text-outline"
+                onPress={() => {
+                  navigation.navigate("QuotationPage", { order: buildOrder() });
+                }}
+                disabled={!selectedPackage}
+              />
+            </View>
+          </>
+        )}
       </Animated.View>
     );
   };
 
-  const VehicleCard = ({ v, active, onPress }) => {
-    const { scale, onPressIn, onPressOut } = usePressScale();
+  // ==================== MAIN RENDER ====================
+  if (loading) {
     return (
-      <AnimatedTouchable
-        activeOpacity={0.9}
-        onPressIn={onPressIn}
-        onPressOut={onPressOut}
-        onPress={onPress}
-        style={[
-          styles.vehicleListCard,
-          active && styles.activeVehicleList,
-          { transform: [{ scale }] },
-        ]}
-      >
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <Image source={v.icon} style={styles.vehicleListImg} />
-          <Text style={styles.vehicleListName}>{v.name}</Text>
+      <ScreenWrapper>
+        <View style={styles.fullLoader}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.fullLoaderText}>Getting your location...</Text>
         </View>
-        {active && (
-          <Ionicons name="checkmark-circle" size={22} color={ORANGE} />
-        )}
-      </AnimatedTouchable>
+      </ScreenWrapper>
     );
-  };
-
-  const minutesToHuman = (min) => {
-    if (!min && min !== 0) return "";
-    const h = Math.floor(min / 60);
-    const m = Math.round(min % 60);
-    if (h && m) return `${h}h ${m}m`;
-    if (h) return `${h}h`;
-    return `${m}m`;
-  };
-
-  const PackageCard = ({ pkg, active, onPress }) => {
-    const { scale, onPressIn, onPressOut } = usePressScale();
-    return (
-      <AnimatedTouchable
-        activeOpacity={0.9}
-        onPressIn={onPressIn}
-        onPressOut={onPressOut}
-        onPress={onPress}
-        style={[
-          styles.packageCard,
-          active && styles.packageActive,
-          { transform: [{ scale }] },
-        ]}
-      >
-        <View style={styles.packageInner}>
-          <View style={{ flex: 1, paddingRight: 12 }}>
-            <Text style={styles.pkgTitle}>{pkg.name}</Text>
-            <Text style={styles.pkgDesc}>{pkg.desc}</Text>
-            <Text style={styles.pkgTime}>
-              Duration: {minutesToHuman(pkg.etaMin)}
-            </Text>
-          </View>
-          <LinearGradient
-            colors={[ORANGE_LIGHT, ORANGE]}
-            style={styles.pricePill}
-          >
-            <Text style={styles.priceText}>₹{pkg.price}</Text>
-          </LinearGradient>
-        </View>
-      </AnimatedTouchable>
-    );
-  };
-
-  // FINAL SHEET CONTENT
-  const renderSheetContent = () => {
-    // Show small loader text if nearest hub still not resolved
-    if (!nearestHub || loadingRoute) {
-      return (
-        <StepContainer stepKey="loading">
-          <Text style={styles.sheetTitle}>Setting up your wash</Text>
-          <Text style={styles.stepSub}>
-            Finding the closest wash hub and estimating travel time…
-          </Text>
-          <View
-            style={{
-              marginTop: 16,
-              flexDirection: "row",
-              alignItems: "center",
-            }}
-          >
-            <ActivityIndicator color={ORANGE} />
-            <Text style={{ marginLeft: 8, color: MUTED }}>
-              Please wait a moment
-            </Text>
-          </View>
-        </StepContainer>
-      );
-    }
-
-    if (step === "vehicle") {
-      return (
-        <StepContainer stepKey="vehicle">
-          <Text style={styles.sheetTitle}>Select your vehicle</Text>
-          <Text style={styles.stepSub}>
-            We’ll customise the wash based on car size.
-          </Text>
-
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            style={{ maxHeight: height * 0.35, marginTop: 8 }}
-          >
-            {VEHICLES.map((v) => (
-              <VehicleCard
-                key={v.id}
-                v={v}
-                active={selectedVehicle === v.id}
-                onPress={() => setSelectedVehicle(v.id)}
-              />
-            ))}
-          </ScrollView>
-
-          {selectedVehicle && (
-            <PrimaryGradientButton
-              label="Continue to Packages"
-              icon="arrow-forward"
-              onPress={() => setStep("package")}
-            />
-          )}
-        </StepContainer>
-      );
-    }
-
-    if (step === "package") {
-      const activePkg = PACKAGES.find((p) => p.id === selectedPackage);
-      const kmValue =
-        distance && distance.includes("km") ? parseFloat(distance) : 0;
-      const dynamicPrice = activePkg
-        ? activePkg.price + kmValue * 5 // small distance component
-        : null;
-
-      return (
-        <StepContainer stepKey="package">
-          <View style={styles.sheetHeaderRow}>
-            <TouchableOpacity
-              style={styles.backPill}
-              onPress={() => setStep("vehicle")}
-            >
-              <Ionicons name="chevron-back" size={16} color={ORANGE} />
-              <Text style={styles.backPillText}>Change vehicle</Text>
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.sheetTitle}>Choose a wash package</Text>
-          <Text style={styles.stepSub}>
-            Car Wash • Nearest hub selected automatically.
-          </Text>
-
-          <View style={{ height: 8 }} />
-          {PACKAGES.map((pkg) => (
-            <PackageCard
-              key={pkg.id}
-              pkg={pkg}
-              active={selectedPackage === pkg.id}
-              onPress={() => setSelectedPackage(pkg.id)}
-            />
-          ))}
-
-          {activePkg && (
-            <View style={styles.estimateBox}>
-              <Text style={styles.estimateLabel}>Estimated Total</Text>
-              <Text style={styles.estimateValue}>
-                ₹{dynamicPrice.toLocaleString("en-IN")}
-              </Text>
-              {distance && (
-                <Text style={styles.estimateMeta}>
-                  Includes hub distance ({distance}) + wash time (
-                  {minutesToHuman(activePkg.etaMin)})
-                </Text>
-              )}
-            </View>
-          )}
-
-          {selectedPackage && (
-            <PrimaryGradientButton
-              label="View full quotation"
-              icon="cash-outline"
-              onPress={() => {
-                const pkg = activePkg;
-                const finalPrice = dynamicPrice ?? pkg.price;
-
-                navigation.navigate("QuotationPage", {
-                  order: buildOrderObject(),
-                });
-              }}
-            />
-          )}
-        </StepContainer>
-      );
-    }
-
-    // fallback (should not reach)
-    return null;
-  };
-const buildOrderObject = () => {
-  const activePkg = PACKAGES.find((p) => p.id === selectedPackage);
-
-  const kmValue =
-    distance && distance.includes("km") ? parseFloat(distance) : 0;
-
-  const finalPrice = activePkg
-    ? activePkg.price + kmValue * 5
-    : 0;
-
-  return {
-    service_type: "car_wash",
-
-    location: {
-      lat: region?.lat,
-      lng: region?.lng,
-    },
-
-    hub: {
-      id: nearestHub?.id,
-      name: nearestHub?.name,
-      lat: nearestHub?.lat,
-      lng: nearestHub?.lng,
-    },
-
-    vehicle: {
-      id: selectedVehicle,
-      name:
-        VEHICLES.find((v) => v.id === selectedVehicle)?.name || "",
-    },
-
-    package: activePkg
-      ? {
-          id: activePkg.id,
-          name: activePkg.name,
-          description: activePkg.desc,
-          base_price: activePkg.price,
-          eta_min: activePkg.etaMin,
-        }
-      : null,
-
-    route: {
-      distance,
-      duration,
-    },
-
-    pricing: {
-      distance_charge: kmValue * 5,
-      total: finalPrice,
-      currency: "INR",
-    },
-
-    address: null,
-    created_at: new Date().toISOString(),
-  };
-};
-
+  }
 
   return (
-    <View style={{ flex: 1, backgroundColor: CANVAS }}>
-      {loadingLocation || !region ? (
-        <View style={styles.loader}>
-          <ActivityIndicator size="large" color={ORANGE} />
-          <Text style={{ marginTop: 8, color: MUTED }}>Locating you…</Text>
-        </View>
-      ) : (
-        <>
-          {/* MAP AREA */}
-          <View style={{ flex: 1 }}>
-            <MapView
-              style={{ flex: 1 }}
-              customMapStyle={MAP_STYLE}
-              initialRegion={{
-                latitude: region.lat,
-                longitude: region.lng,
-                latitudeDelta: 0.05,
-                longitudeDelta: 0.05,
-              }}
-            >
-              {/* USER MARKER ONLY */}
-              {/* 📍 USER LOCATION MARKER */}
-                <Marker
-                  coordinate={{
-                    latitude: region.lat,
-                    longitude: region.lng,
-                  }}
-                  anchor={{ x: 0.5, y: 0.5 }}
-                >
-                  <View style={styles.userMarker}>
-                    <View style={styles.userMarkerInner}>
-                      <Text style={styles.pinEmoji}>📍</Text>
-                    </View>
-                  </View>
-                </Marker>
-
-              {/* ROAD PATH to nearest hub (hub marker hidden) */}
-              {routeCoords.length > 0 && (
-                <Polyline
-                  coordinates={routeCoords}
-                  strokeColor={ORANGE}
-                  strokeWidth={4}
-                />
-              )}
-            </MapView>
-
-            {/* MAP OVERLAY HEADER */}
-            <View style={styles.mapOverlay}>
-              <View>
-                <Text style={styles.mapTitle}>Car Wash Booking</Text>
-                <Text style={styles.mapSub}>
-                  Nearest wash hub auto-selected based on your location.
-                </Text>
-                {nearestHub && distance && duration && (
-                  <Text style={styles.mapMeta}>
-                    {nearestHub.name} • {distance} • {duration}
-                  </Text>
-                )}
+    <ScreenWrapper>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <View style={styles.container}>
+        {/* Map */}
+        <MapView
+          ref={mapRef}
+          style={styles.map}
+          provider={PROVIDER_GOOGLE}
+          customMapStyle={MAP_STYLE}
+          showsCompass={false}
+          showsMyLocationButton={false}
+        >
+          {region && (
+            <Marker coordinate={{ latitude: region.lat, longitude: region.lng }}>
+              <View style={styles.userMarker}>
+                <View style={styles.userMarkerDot} />
               </View>
-            </View>
+            </Marker>
+          )}
 
-            {/* Floating FAB to recalc nearest hub */}
-            <Animated.View
-              style={[
-                styles.fabWrap,
-                { transform: [{ scale: pulse }] },
-              ]}
-            >
-              <TouchableOpacity
-                activeOpacity={0.88}
-                onPress={computeNearestHub}
-              >
-                <LinearGradient
-                  colors={[ORANGE_LIGHT, ORANGE]}
-                  style={styles.fab}
-                >
-                  <Ionicons name="locate" size={24} color="#fff" />
-                </LinearGradient>
-              </TouchableOpacity>
-            </Animated.View>
+          {nearestHub && (
+            <Marker coordinate={{ latitude: nearestHub.lat, longitude: nearestHub.lng }}>
+              <View style={styles.hubMarker}>
+                <Ionicons name="car-sport" size={16} color={COLORS.white} />
+              </View>
+            </Marker>
+          )}
+
+          {routeCoords.length > 0 && (
+            <Polyline
+              coordinates={routeCoords}
+              strokeColor={COLORS.primary}
+              strokeWidth={4}
+            />
+          )}
+        </MapView>
+
+        {/* Map Header */}
+        <View style={styles.mapHeader}>
+          <TouchableOpacity style={styles.menuBtn}>
+            <Ionicons name="menu" size={22} color={COLORS.textDark} />
+          </TouchableOpacity>
+
+          <View style={styles.mapTitleWrap}>
+            <Text style={styles.mapTitle}>Car Wash</Text>
+            {nearestHub && distance && (
+              <Text style={styles.mapSubtitle}>{nearestHub.name} • {distance}</Text>
+            )}
           </View>
 
-          {/* BOTTOM SHEET FLOW */}
-          <BottomSheet
-            ref={bottomSheetRef}
-            index={1}
-            snapPoints={snapPoints}
-            backgroundStyle={styles.sheetBackground}
-            handleIndicatorStyle={{ backgroundColor: "rgba(0,0,0,0.16)" }}
+          <TouchableOpacity style={styles.menuBtn}>
+            <Ionicons name="notifications-outline" size={22} color={COLORS.textDark} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Peak Hour Badge */}
+        {isPeakHour() && (
+          <View style={styles.peakHourBadge}>
+            <Ionicons name="flash" size={14} color={COLORS.warning} />
+            <Text style={styles.peakHourText}>Peak Hours Active</Text>
+          </View>
+        )}
+
+        {/* FAB */}
+        <TouchableOpacity style={styles.fab} onPress={findNearestHub} activeOpacity={0.85}>
+          <Ionicons name="locate" size={22} color={COLORS.white} />
+        </TouchableOpacity>
+
+        {/* Bottom Sheet */}
+        <BottomSheet
+          ref={bottomSheetRef}
+          index={1}
+          snapPoints={snapPoints}
+          backgroundStyle={styles.sheetBg}
+          handleIndicatorStyle={styles.sheetHandle}
+          enableContentPanningGesture={true}
+          enableHandlePanningGesture={true}
+        >
+          <BottomSheetScrollView
+            contentContainerStyle={styles.sheetContent}
+            showsVerticalScrollIndicator={false}
           >
-            <BottomSheetView style={styles.sheetContent}>
-              {renderSheetContent()}
-            </BottomSheetView>
-          </BottomSheet>
-        </>
-      )}
-    </View>
+            {renderContent()}
+          </BottomSheetScrollView>
+        </BottomSheet>
+      </View>
+    </ScreenWrapper>
   );
 }
 
+// ==================== STYLES ====================
 const styles = StyleSheet.create({
-  loader: {
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+
+  // Loader
+  fullLoader: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: CANVAS,
+    backgroundColor: COLORS.background,
+  },
+  fullLoaderText: {
+    marginTop: SPACING.lg,
+    fontSize: 15,
+    color: COLORS.textSecondary,
   },
 
-  // Map overlay
-  mapOverlay: {
+  // Map
+  map: {
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  mapHeader: {
     position: "absolute",
-    top: 16,
-    left: 16,
-    right: 16,
-    borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.96)",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    top: Platform.OS === "ios" ? 54 : 20,
+    left: SPACING.lg,
+    right: SPACING.lg,
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 3,
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.xl,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  menuBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  mapTitleWrap: {
+    flex: 1,
+    marginHorizontal: SPACING.md,
   },
   mapTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: CHARCOAL,
+    color: COLORS.textDark,
   },
-  mapSub: {
+  mapSubtitle: {
     fontSize: 12,
-    color: MUTED,
+    color: COLORS.textSecondary,
     marginTop: 2,
   },
-  mapMeta: {
-    fontSize: 11,
-    color: MUTED,
-    marginTop: 2,
-  },
-userMarker: {
-  width: 46,
-  height: 46,
-  alignItems: "center",
-  justifyContent: "center",
-  shadowOpacity: 0.15,
-  shadowRadius: 6,
-  shadowOffset: { width: 0, height: 3 },
-  elevation: 6,
-},
 
-userMarkerInner: {
-  width: 36,
-  height: 36,
-  borderRadius: 18,
-  alignItems: "center",
-  justifyContent: "center",
-},
-
-pinEmoji: {
-  fontSize: 30,
-  margintop: -19,
-},
-
-  // Bottom sheet
-  sheetBackground: {
-    backgroundColor: CARD_BG,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 5,
-  },
-  sheetContent: {
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 16,
-  },
-  sheetTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: CHARCOAL,
-  },
-  stepSub: {
-    fontSize: 13,
-    color: MUTED,
-    marginTop: 4,
-  },
-
-  sheetHeaderRow: {
-    flexDirection: "row",
-    justifyContent: "flex-start",
-    marginBottom: 6,
-  },
-  backPill: {
+  // Peak Hour Badge
+  peakHourBadge: {
+    position: "absolute",
+    top: Platform.OS === "ios" ? 110 : 100,
+    alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 16,
-    backgroundColor: "#FFF4E8",
-    alignSelf: "flex-start",
+    backgroundColor: COLORS.warningBg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.full,
+    gap: 4,
   },
-  backPillText: {
-    fontSize: 11,
-    color: ORANGE,
-    marginLeft: 4,
+  peakHourText: {
+    fontSize: 12,
     fontWeight: "600",
+    color: COLORS.warning,
   },
 
-  // Vehicle list
-  vehicleListCard: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.06)",
-  },
-  activeVehicleList: {
-    borderColor: ORANGE,
-    backgroundColor: "#FFF4E8",
-  },
-  vehicleListImg: {
-    width: 56,
-    height: 42,
-    resizeMode: "contain",
-    marginRight: 10,
-  },
-  vehicleListName: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: CHARCOAL,
-  },
-
-  // Package cards
-  packageCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.06)",
-  },
-  packageActive: {
-    borderColor: ORANGE,
-    backgroundColor: "#FFF4E8",
-  },
-  packageInner: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  pkgTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: CHARCOAL,
-  },
-  pkgDesc: {
-    fontSize: 12,
-    color: MUTED,
-    marginTop: 2,
-  },
-  pkgTime: {
-    fontSize: 11,
-    color: "#059669",
-    marginTop: 2,
-  },
-  pricePill: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 18,
-    minWidth: 70,
-    alignItems: "center",
-  },
-  priceText: {
-    color: "#fff",
-    fontWeight: "800",
-    fontSize: 13,
-  },
-
-  // Estimate section
-  estimateBox: {
-    marginTop: 12,
-    backgroundColor: "#ecfeff",
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#a5f3fc",
-  },
-  estimateLabel: {
-    fontSize: 12,
-    color: "#0e7490",
-  },
-  estimateValue: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#0f766e",
-    marginTop: 4,
-  },
-  estimateMeta: {
-    fontSize: 11,
-    color: "#0e7490",
-    marginTop: 4,
-  },
-
-  // Primary button
-  gradientBtn: {
-    marginTop: 10,
-    borderRadius: 18,
-    paddingVertical: 12,
-    alignItems: "center",
+  // Markers
+  userMarker: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.primaryBg,
     justifyContent: "center",
-    flexDirection: "row",
+    alignItems: "center",
   },
-  gradientText: {
-    color: "#fff",
-    fontWeight: "800",
-    fontSize: 15,
-    letterSpacing: 0.2,
+  userMarkerDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: COLORS.primary,
+    borderWidth: 3,
+    borderColor: COLORS.white,
+  },
+  hubMarker: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
 
   // FAB
-  fabWrap: {
-    position: "absolute",
-    right: 16,
-    bottom: 140,
-  },
   fab: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    position: "absolute",
+    right: SPACING.lg,
+    bottom: height * 0.58,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: COLORS.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+
+  // Sheet
+  sheetBg: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: RADIUS.xxl,
+    borderTopRightRadius: RADIUS.xxl,
+  },
+  sheetHandle: {
+    backgroundColor: COLORS.divider,
+    width: 40,
+    height: 4,
+  },
+  sheetContent: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.xxxl + 20,
+  },
+
+  // Loading
+  loadingContainer: {
+    alignItems: "center",
+    paddingVertical: SPACING.xxxl,
+  },
+  loadingText: {
+    marginTop: SPACING.lg,
+    fontSize: 15,
+    color: COLORS.textSecondary,
+  },
+
+  // Progress
+  progressBar: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: ORANGE,
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 6,
+    marginBottom: SPACING.xl,
+  },
+  progressStep: {
+    alignItems: "center",
+  },
+  progressDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: COLORS.divider,
+    marginBottom: SPACING.xs,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  progressDotActive: {
+    backgroundColor: COLORS.primary,
+  },
+  progressLabel: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    fontWeight: "500",
+  },
+  progressLabelActive: {
+    color: COLORS.primary,
+    fontWeight: "600",
+  },
+  progressLine: {
+    width: 60,
+    height: 2,
+    backgroundColor: COLORS.divider,
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.lg,
+  },
+  progressLineActive: {
+    backgroundColor: COLORS.primary,
+  },
+
+  // Header Card
+  headerCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.xl,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+  },
+  headerIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: SPACING.md,
+  },
+  headerInfo: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.textDark,
+    marginBottom: 2,
+  },
+  headerAddress: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginBottom: 6,
+  },
+  headerMeta: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  metaChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.primaryBg,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 3,
+    borderRadius: RADIUS.full,
+    gap: 4,
+  },
+  metaChipText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: COLORS.primary,
+  },
+  ratingChip: {
+    backgroundColor: COLORS.warningBg,
+  },
+
+  // Section
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: COLORS.textDark,
+    marginBottom: SPACING.xs,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.lg,
+  },
+
+  // Back Button
+  backBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: COLORS.primaryBg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.full,
+    marginBottom: SPACING.lg,
+  },
+  backBtnText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.primary,
+    marginLeft: SPACING.xs,
+  },
+
+  // Vehicle Item
+  vehicleItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+  },
+  vehicleItemActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryBg,
+  },
+  popularTag: {
+    position: "absolute",
+    top: -8,
+    right: SPACING.md,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: RADIUS.sm,
+  },
+  popularText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: COLORS.white,
+    letterSpacing: 0.5,
+  },
+  vehicleIcon: {
+    width: 60,
+    height: 40,
+    resizeMode: "contain",
+    marginRight: SPACING.md,
+  },
+  vehicleInfo: {
+    flex: 1,
+  },
+  vehicleName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: COLORS.textDark,
+    marginBottom: 2,
+  },
+  vehicleNameActive: {
+    color: COLORS.primaryDark,
+  },
+  vehicleSubtitle: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+  vehicleMultiplier: {
+    fontSize: 10,
+    color: COLORS.warning,
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  radioOuter: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  radioOuterActive: {
+    borderColor: COLORS.primary,
+  },
+  radioInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: COLORS.primary,
+  },
+
+  // Package Item
+  packageItem: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+  },
+  packageItemActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryBg,
+  },
+  packageTag: {
+    position: "absolute",
+    top: -8,
+    right: SPACING.md,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: RADIUS.sm,
+    zIndex: 1,
+  },
+  packageTagText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: COLORS.white,
+    letterSpacing: 0.5,
+  },
+  packageRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  packageIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primaryBg,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: SPACING.md,
+  },
+  packageIconActive: {
+    backgroundColor: COLORS.primary,
+  },
+  packageInfo: {
+    flex: 1,
+  },
+  packageName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: COLORS.textDark,
+    marginBottom: 2,
+  },
+  packageNameActive: {
+    color: COLORS.primaryDark,
+  },
+  packageDesc: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  packageEta: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  packageEtaText: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginLeft: 4,
+  },
+  priceContainer: {
+    alignItems: "flex-end",
+  },
+  packagePrice: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: COLORS.textDark,
+  },
+  packagePriceActive: {
+    color: COLORS.primaryDark,
+  },
+  originalPrice: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    textDecorationLine: "line-through",
+  },
+
+  // Estimate Card
+  estimateCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    overflow: "hidden",
+  },
+  estimateHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.primaryBg,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    gap: 8,
+  },
+  estimateTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.primary,
+  },
+  estimateBody: {
+    padding: SPACING.lg,
+  },
+  estimateRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: SPACING.sm,
+  },
+  estimateLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flex: 1,
+  },
+  estimateLabel: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
+  estimateSub: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+  },
+  estimateValue: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.textDark,
+  },
+  peakBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.warningBg,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: RADIUS.sm,
+    gap: 2,
+  },
+  peakBadgeText: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: COLORS.warning,
+  },
+  estimateDivider: {
+    height: 1,
+    backgroundColor: COLORS.divider,
+    marginVertical: SPACING.md,
+  },
+  estimateTotal: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.textDark,
+  },
+  estimateTime: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  estimateTotalValue: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: COLORS.primary,
+  },
+  savingsBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.successBg,
+    paddingVertical: SPACING.sm,
+    gap: 6,
+  },
+  savingsText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: COLORS.success,
+  },
+
+  // Button
+  buttonContainer: {
+    marginTop: SPACING.lg,
+  },
+  primaryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.ctaBlack,
+    paddingVertical: SPACING.lg,
+    borderRadius: RADIUS.md,
+  },
+  primaryBtnDisabled: {
+    opacity: 0.4,
+  },
+  primaryBtnText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: COLORS.white,
   },
 });
