@@ -1,66 +1,39 @@
 // navigation/HomeTabs.js
-import React, { useEffect, useCallback } from "react";
+import React, { useRef, useEffect } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   Platform,
-  Dimensions,
+  Animated,
 } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import Animated, {
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  useSharedValue,
-  interpolate,
-  Extrapolate,
-  withSequence,
-} from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
-// Screens
-import ServiceSelectScreen from "../screens/ServiceSelectScreen";
-import DashboardScreen from "../screens/DashboardScreen";
-import PickDropScreen from "../screens/PickDropScreen";
-import DriverScreen from "../screens/DriverScreen";
-import ProfileScreen from "../screens/ProfileScreen";
+import ServiceSelectScreen from "../screens/home/ServiceSelectScreen";
+import DashboardScreen from "../screens/home/DashboardScreen";
+import PickDropScreen from "../screens/home/PickDropScreen";
+import DriverScreen from "../screens/home/DriverScreen";
+import ProfileScreen from "../screens/profile/ProfileScreen";
 import ActiveRideHandler from "../components/ActiveRideHandler";
 
 const Tab = createBottomTabNavigator();
-const { width } = Dimensions.get("window");
 
-// ==================== DESIGN TOKENS ====================
 const COLORS = {
-  primary: "#00A86B",
-  primaryLight: "rgba(0, 168, 107, 0.1)",
-  primaryMedium: "rgba(0, 168, 107, 0.15)",
-  primaryDark: "#008F5B",
+  primary: "#000000",
+  primarySoft: "rgba(0,0,0,0.06)",
   white: "#FFFFFF",
-  background: "#FAFBFC",
-  surface: "#F5F6F8",
-  border: "#EAECEF",
-  textActive: "#00A86B",
-  textInactive: "#8E99A4",
-  textDark: "#1A1D21",
-  shadow: "rgba(0, 0, 0, 0.08)",
-  shadowDark: "rgba(0, 0, 0, 0.12)",
+  offWhite: "#F8F9FA",
+  border: "#F0F0F0",
+  textActive: "#000000",
+  textInactive: "#ABABAB",
+  accent: "#00C853",
+  accentSoft: "rgba(0,200,83,0.12)",
 };
 
-const SPRING_CONFIG = {
-  damping: 15,
-  stiffness: 150,
-  mass: 0.8,
-};
-
-const TIMING_CONFIG = {
-  duration: 250,
-};
-
-// ==================== TAB DATA ====================
 const TAB_DATA = [
   {
     name: "Home",
@@ -71,8 +44,8 @@ const TAB_DATA = [
   {
     name: "CarWash",
     label: "Wash",
-    icon: "car-sport",
-    iconOutline: "car-sport-outline",
+    icon: "water",
+    iconOutline: "water-outline",
   },
   {
     name: "PickDrop",
@@ -84,236 +57,184 @@ const TAB_DATA = [
   {
     name: "Driver",
     label: "Driver",
-    icon: "person",
-    iconOutline: "person-outline",
+    icon: "car-sport",
+    iconOutline: "car-sport-outline",
   },
   {
     name: "Profile",
     label: "Profile",
-    icon: "apps",
-    iconOutline: "apps-outline",
+    icon: "person-circle",
+    iconOutline: "person-circle-outline",
   },
 ];
 
-// ==================== HAPTIC FEEDBACK ====================
 const triggerHaptic = () => {
   try {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  } catch (e) {
-    // Haptics not available
-  }
+  } catch (e) {}
 };
 
-// ==================== TAB ITEM COMPONENT ====================
-const TabItem = React.memo(({ tab, isFocused, onPress }) => {
-  // Animation Values
-  const scale = useSharedValue(1);
-  const iconScale = useSharedValue(1);
-  const labelOpacity = useSharedValue(1);
-  const bgScale = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  const indicatorWidth = useSharedValue(0);
+// ==================== ANIMATED TAB ITEM ====================
+const TabItem = ({ tab, isFocused, onPress }) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const opacityAnim = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
 
-  // Update animations on focus change
   useEffect(() => {
-    if (isFocused) {
-      scale.value = withSpring(1, SPRING_CONFIG);
-      iconScale.value = withSequence(
-        withSpring(1.2, { damping: 10, stiffness: 200 }),
-        withSpring(1.1, SPRING_CONFIG)
-      );
-      bgScale.value = withSpring(1, SPRING_CONFIG);
-      translateY.value = withSpring(-2, SPRING_CONFIG);
-      indicatorWidth.value = withSpring(20, SPRING_CONFIG);
-      labelOpacity.value = withTiming(1, TIMING_CONFIG);
-    } else {
-      scale.value = withSpring(0.95, SPRING_CONFIG);
-      iconScale.value = withSpring(1, SPRING_CONFIG);
-      bgScale.value = withSpring(0, SPRING_CONFIG);
-      translateY.value = withSpring(0, SPRING_CONFIG);
-      indicatorWidth.value = withSpring(0, SPRING_CONFIG);
-      labelOpacity.value = withTiming(0.7, TIMING_CONFIG);
-    }
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: isFocused ? 1.08 : 1,
+        useNativeDriver: true,
+        tension: 120,
+        friction: 8,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: isFocused ? 1 : 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
   }, [isFocused]);
-
-  const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.92, { damping: 20, stiffness: 300 });
-  }, []);
-
-  const handlePressOut = useCallback(() => {
-    scale.value = withSpring(isFocused ? 1 : 0.95, SPRING_CONFIG);
-  }, [isFocused]);
-
-  const handlePress = useCallback(() => {
-    triggerHaptic();
-    onPress();
-  }, [onPress]);
-
-  // ✅ FIXED: Wrap transform animations
-  const containerStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: scale.value },
-      { translateY: translateY.value },
-    ],
-  }));
-
-  const iconContainerStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: iconScale.value }],
-  }));
-
-  const bgStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: bgScale.value }],
-    opacity: interpolate(bgScale.value, [0, 1], [0, 1], Extrapolate.CLAMP),
-  }));
-
-  const labelStyle = useAnimatedStyle(() => ({
-    opacity: labelOpacity.value,
-  }));
-
-  const indicatorStyle = useAnimatedStyle(() => ({
-    width: indicatorWidth.value,
-    opacity: interpolate(indicatorWidth.value, [0, 20], [0, 1], Extrapolate.CLAMP),
-  }));
 
   return (
     <TouchableOpacity
-      activeOpacity={1}
-      onPress={handlePress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
+      onPress={() => {
+        triggerHaptic();
+        onPress();
+      }}
       style={styles.tabTouchable}
       accessibilityRole="button"
       accessibilityState={{ selected: isFocused }}
-      accessibilityLabel={tab.label}
+      activeOpacity={0.7}
     >
-      {/* ✅ WRAPPER VIEW - Prevents warning */}
-      <View style={styles.tabWrapper}>
-        <Animated.View style={[styles.tabContainer, containerStyle]}>
-          {/* Background Pill */}
-          <Animated.View style={[styles.tabBackground, bgStyle]} />
+      <Animated.View
+        style={[styles.tabInner, { transform: [{ scale: scaleAnim }] }]}
+      >
+        {/* Active pill background */}
+        <Animated.View
+          style={[styles.tabPill, { opacity: opacityAnim }]}
+        />
 
-          {/* Icon */}
-          <View style={styles.iconWrapper}>
-            <Animated.View style={iconContainerStyle}>
-              <Ionicons
-                name={isFocused ? tab.icon : tab.iconOutline}
-                size={22}
-                color={isFocused ? COLORS.primary : COLORS.textInactive}
-              />
-            </Animated.View>
-          </View>
-
-          {/* Label */}
-          <Animated.Text
-            style={[
-              styles.tabLabel,
-              isFocused && styles.tabLabelActive,
-              labelStyle,
-            ]}
-            numberOfLines={1}
-          >
-            {tab.label}
-          </Animated.Text>
-
-          {/* Active Indicator */}
-          <Animated.View style={[styles.activeIndicator, indicatorStyle]} />
-        </Animated.View>
-      </View>
+        <Ionicons
+          name={isFocused ? tab.icon : tab.iconOutline}
+          size={22}
+          color={isFocused ? COLORS.primary : COLORS.textInactive}
+        />
+        <Text
+          style={[
+            styles.tabLabel,
+            isFocused && styles.tabLabelActive,
+          ]}
+        >
+          {tab.label}
+        </Text>
+      </Animated.View>
     </TouchableOpacity>
   );
-});
+};
 
-// ==================== CENTER TAB (RIDE BUTTON) ====================
-const CenterTabItem = React.memo(({ tab, isFocused, onPress }) => {
-  const scale = useSharedValue(1);
-  const innerScale = useSharedValue(1);
-  const rotation = useSharedValue(0);
-  const glowOpacity = useSharedValue(0);
+// ==================== ANIMATED CENTER TAB ====================
+const CenterTabItem = ({ tab, isFocused, onPress }) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const glowAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (isFocused) {
-      innerScale.value = withSpring(1.05, SPRING_CONFIG);
-      glowOpacity.value = withTiming(1, { duration: 300 });
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1.12,
+          useNativeDriver: true,
+          tension: 100,
+          friction: 6,
+        }),
+        Animated.timing(rotateAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
     } else {
-      innerScale.value = withSpring(1, SPRING_CONFIG);
-      glowOpacity.value = withTiming(0, { duration: 300 });
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 100,
+          friction: 6,
+        }),
+        Animated.timing(rotateAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
     }
   }, [isFocused]);
 
-  const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.9, { damping: 15, stiffness: 200 });
-    rotation.value = withSpring(-5, SPRING_CONFIG);
-  }, []);
-
-  const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, SPRING_CONFIG);
-    rotation.value = withSpring(0, SPRING_CONFIG);
-  }, []);
-
-  const handlePress = useCallback(() => {
-    triggerHaptic();
-    onPress();
-  }, [onPress]);
-
-  // ✅ FIXED: Wrap transform animations
-  const containerStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: scale.value },
-      { rotate: `${rotation.value}deg` },
-    ],
-  }));
-
-  const innerStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: innerScale.value }],
-  }));
-
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: glowOpacity.value,
-  }));
+  const rotate = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "15deg"],
+  });
 
   return (
     <TouchableOpacity
-      activeOpacity={1}
-      onPress={handlePress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
+      onPress={() => {
+        triggerHaptic();
+        onPress();
+      }}
       style={styles.centerTabTouchable}
       accessibilityRole="button"
       accessibilityState={{ selected: isFocused }}
-      accessibilityLabel={tab.label}
+      activeOpacity={0.85}
     >
-      {/* ✅ WRAPPER VIEW */}
-      <View style={styles.centerTabWrapper}>
-        <Animated.View style={containerStyle}>
-          {/* Glow Effect */}
-          <Animated.View style={[styles.centerTabGlow, glowStyle]} />
+      {/* Glow ring */}
+      <Animated.View
+        style={[
+          styles.centerGlowRing,
+          {
+            opacity: glowAnim,
+            transform: [{ scale: scaleAnim }],
+          },
+        ]}
+      />
 
-          {/* Main Button */}
-          <View style={styles.centerTabButtonWrapper}>
-            <Animated.View
-              style={[
-                styles.centerTabButton,
-                isFocused && styles.centerTabButtonActive,
-                innerStyle,
-              ]}
-            >
-              <Ionicons
-                name={isFocused ? tab.icon : tab.iconOutline}
-                size={26}
-                color={COLORS.white}
-              />
-            </Animated.View>
-          </View>
+      {/* Main button */}
+      <Animated.View
+        style={[
+          styles.centerTabButton,
+          isFocused && styles.centerTabButtonActive,
+          { transform: [{ scale: scaleAnim }] },
+        ]}
+      >
+        <Animated.View style={{ transform: [{ rotate }] }}>
+          <Ionicons
+            name={isFocused ? tab.icon : tab.iconOutline}
+            size={26}
+            color={COLORS.white}
+          />
         </Animated.View>
-      </View>
+      </Animated.View>
 
-      {/* Label */}
-      <Text style={[styles.centerTabLabel, isFocused && styles.centerTabLabelActive]}>
+      <Text
+        style={[
+          styles.centerTabLabel,
+          isFocused && styles.centerTabLabelActive,
+        ]}
+      >
         {tab.label}
       </Text>
     </TouchableOpacity>
   );
-});
+};
 
 // ==================== CUSTOM TAB BAR ====================
 function CustomTabBar({ state, navigation }) {
@@ -321,67 +242,63 @@ function CustomTabBar({ state, navigation }) {
   const bottomPadding = Math.max(insets.bottom, 8);
 
   return (
-    <View style={[styles.tabBarContainer, { paddingBottom: bottomPadding }]}>
-      <View style={styles.tabBarBackground} />
+    <View style={[styles.tabBarWrapper, { paddingBottom: bottomPadding }]}>
+      {/* Top border accent line */}
+      <View style={styles.topAccentLine} />
 
-      <View style={styles.tabItemsRow}>
-        {state.routes.map((route, index) => {
-          const isFocused = state.index === index;
-          const tabConfig = TAB_DATA.find((t) => t.name === route.name);
+      <View style={styles.tabBarContainer}>
+        <View style={styles.tabItemsRow}>
+          {state.routes.map((route, index) => {
+            const isFocused = state.index === index;
+            const tabConfig = TAB_DATA.find((t) => t.name === route.name);
 
-          if (!tabConfig) return null;
+            if (!tabConfig) return null;
 
-          const onPress = () => {
-            const event = navigation.emit({
-              type: "tabPress",
-              target: route.key,
-              canPreventDefault: true,
-            });
+            const onPress = () => {
+              const event = navigation.emit({
+                type: "tabPress",
+                target: route.key,
+                canPreventDefault: true,
+              });
+              if (!isFocused && !event.defaultPrevented) {
+                navigation.navigate(route.name);
+              }
+            };
 
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
+            if (tabConfig.isCenter) {
+              return (
+                <CenterTabItem
+                  key={route.key}
+                  tab={tabConfig}
+                  isFocused={isFocused}
+                  onPress={onPress}
+                />
+              );
             }
-          };
 
-          if (tabConfig.isCenter) {
             return (
-              <CenterTabItem
+              <TabItem
                 key={route.key}
                 tab={tabConfig}
                 isFocused={isFocused}
                 onPress={onPress}
               />
             );
-          }
-
-          return (
-            <TabItem
-              key={route.key}
-              tab={tabConfig}
-              isFocused={isFocused}
-              onPress={onPress}
-            />
-          );
-        })}
+          })}
+        </View>
       </View>
     </View>
   );
 }
 
 // ==================== MAIN NAVIGATOR ====================
-// ==================== MAIN NAVIGATOR ====================
 export default function HomeTabs() {
   return (
     <>
-      {/* ✅ ACTIVE RIDE CHECKER (MOUNTED HERE) */}
       <ActiveRideHandler />
-
       <Tab.Navigator
         tabBar={(props) => <CustomTabBar {...props} />}
-        screenOptions={{
-          headerShown: false,
-          lazy: true,
-        }}
+        screenOptions={{ headerShown: false, lazy: true }}
         initialRouteName="Home"
       >
         <Tab.Screen name="Home" component={ServiceSelectScreen} />
@@ -400,168 +317,114 @@ export default function HomeTabs() {
 
 // ==================== STYLES ====================
 const styles = StyleSheet.create({
-  tabBarContainer: {
-    position: "relative",
-    backgroundColor: "transparent",
-  },
-
-  tabBarBackground: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+  // ── Wrapper ──────────────────────────────────────────────
+  tabBarWrapper: {
     backgroundColor: COLORS.white,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadowDark,
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -8 },
+        shadowOpacity: 0.07,
+        shadowRadius: 20,
       },
       android: {
-        elevation: 8,
+        elevation: 16,
       },
     }),
+  },
+
+  topAccentLine: {
+    height: 1,
+    backgroundColor: COLORS.border,
+  },
+
+  tabBarContainer: {
+    backgroundColor: COLORS.white,
+    paddingTop: 6,
   },
 
   tabItemsRow: {
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "space-around",
-    paddingTop: 8,
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
+    paddingBottom: 4,
   },
 
-  // ✅ NEW: Wrapper to prevent warning
-  tabWrapper: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
+  // ── Regular Tab ──────────────────────────────────────────
   tabTouchable: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 56,
+    minHeight: 58,
   },
 
-  tabContainer: {
+  tabInner: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    borderRadius: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 18,
     position: "relative",
   },
 
-  tabBackground: {
+  tabPill: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: COLORS.primaryLight,
-    borderRadius: 16,
-  },
-
-  // ✅ NEW: Icon wrapper
-  iconWrapper: {
-    width: 32,
-    height: 32,
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: COLORS.primarySoft,
+    borderRadius: 18,
   },
 
   tabLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "500",
     color: COLORS.textInactive,
-    marginTop: 2,
+    marginTop: 3,
     letterSpacing: 0.2,
   },
 
   tabLabelActive: {
     color: COLORS.primary,
-    fontWeight: "600",
+    fontWeight: "700",
   },
 
-  activeIndicator: {
-    height: 3,
-    backgroundColor: COLORS.primary,
-    borderRadius: 1.5,
-    marginTop: 4,
-  },
-
-  // ✅ NEW: Center tab wrapper
-  centerTabWrapper: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
+  // ── Center Tab ───────────────────────────────────────────
   centerTabTouchable: {
     alignItems: "center",
     justifyContent: "flex-end",
-    marginTop: -20,
+    marginTop: -22,
     paddingHorizontal: 8,
-    minWidth: 70,
+    minWidth: 72,
   },
 
-  centerTabGlow: {
-    position: "absolute",
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: COLORS.primaryLight,
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.4,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
-
-  // ✅ NEW: Button wrapper
-  centerTabButtonWrapper: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  // centerGlowRing: {
+  //   position: "absolute",
+  //   top: -1,
+  //   width: 62,
+  //   height: 62,
+  //   borderRadius: 36,
+  //   borderWidth: 2,
+  //   borderColor: COLORS.primary,
+  //   opacity: 0.15,
+  // },
 
   centerTabButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.textInactive,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: "#ABABAB",
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 3,
+    borderColor: COLORS.white,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
-  },
-
-  centerTabButtonActive: {
-    backgroundColor: COLORS.primary,
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.primary,
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.35,
+        shadowOpacity: 0.18,
         shadowRadius: 12,
       },
       android: {
@@ -570,16 +433,31 @@ const styles = StyleSheet.create({
     }),
   },
 
+  centerTabButtonActive: {
+    backgroundColor: COLORS.primary,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.28,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 14,
+      },
+    }),
+  },
+
   centerTabLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "500",
     color: COLORS.textInactive,
-    marginTop: 6,
+    marginTop: 5,
     letterSpacing: 0.2,
   },
 
   centerTabLabelActive: {
     color: COLORS.primary,
-    fontWeight: "600",
+    fontWeight: "700",
   },
 });

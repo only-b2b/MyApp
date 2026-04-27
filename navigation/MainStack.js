@@ -2,34 +2,53 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
-// Auth Screens
-import LoginScreen from "../screens/LoginScreen";
-import RegisterScreen from "../screens/RegisterScreen";
+// ========== AUTH SCREENS ==========
+import LoginScreen from "../screens/auth/LoginScreen";
+import RegisterScreen from "../screens/auth/RegisterScreen";
 
-// Tab Navigator
+// ========== TAB NAVIGATOR ==========
 import HomeTabs from "./HomeTabs";
 
-// Common Screens
-import QuotationPage from "../screens/QuotationPage";
-import ClientInfoPage from "../screens/ClientInfoPage";
-import PaymentPage from "../screens/PaymentPage";
-import SelectAddressPage from "../screens/SelectAddressPage";
-import SuccessPage from "../screens/SuccessPage";
-import RideHistoryScreen from "../screens/RideHistoryScreen";
+// ========== BOOKING FLOW ==========
+import QuotationPage from "../screens/booking/QuotationPage";
+import ClientInfoPage from "../screens/booking/ClientInfoPage";
+import PaymentPage from "../screens/booking/PaymentPage";
+import SelectAddressPage from "../screens/booking/SelectAddressPage";
+import SuccessPage from "../screens/booking/SuccessPage";
 
-// Driver Service Flow
-import FindingDriverScreen from "../screens/FindingDriverScreen";
-import DriverAcceptedScreen from "../screens/DriverAcceptedScreen";
-import DriverAssignedScreen from "../screens/DriverAssignedScreen";
-import LiveRideScreen from "../screens/LiveRideScreen";
-import RideInProgressScreen from "../screens/RideInProgressScreen";
+// ========== DRIVER SERVICE FLOW ==========
+import FindingDriverScreen from "../screens/driver/FindingDriverScreen";
+import DriverAcceptedScreen from "../screens/driver/DriverAcceptedScreen";
+import DriverAssignedScreen from "../screens/driver/DriverAssignedScreen";
+import LiveRideScreen from "../screens/driver/LiveRideScreen";
+import RideInProgressScreen from "../screens/driver/RideInProgressScreen";
 
-// Car Wash Flow (NEW SCREENS)
-import FindingTechnicianScreen from "../screens/FindingTechnicianScreen";
-import TechnicianEnRouteScreen from "../screens/TechnicianEnRouteScreen";
-import TechnicianArrivedScreen from "../screens/TechnicianArrivedScreen";
-import WashInProgressScreen from "../screens/WashInProgressScreen";
-import WashCompletedScreen from "../screens/WashCompletedScreen";
+// ========== CAR WASH FLOW ==========
+import FindingTechnicianScreen from "../screens/carwash/FindingTechnicianScreen";
+import TechnicianEnRouteScreen from "../screens/carwash/TechnicianEnRouteScreen";
+import TechnicianArrivedScreen from "../screens/carwash/TechnicianArrivedScreen";
+import WashInProgressScreen from "../screens/carwash/WashInProgressScreen";
+import WashCompletedScreen from "../screens/carwash/WashCompletedScreen";
+
+// ========== PAYMENT SCREENS ==========
+import AdvancePaymentScreen from "../screens/AdvancePaymentScreen";
+import FinalPaymentScreen from "../screens/FinalPaymentScreen";
+import OrderCompleteScreen from "../screens/OrderCompleteScreen";
+
+// ========== CANCELLATION & REFUND SCREENS ==========
+import CancelBookingScreen from "../screens/CancelBookingScreen";
+import RefundStatusScreen from "../screens/RefundStatusScreen";
+
+// ========== PROFILE SCREENS ==========
+import RideHistoryScreen from "../screens/profile/RideHistoryScreen";
+import RideDetailsScreen from "../screens/profile/RideDetailsScreen";
+import PaymentMethodsScreen from "../screens/profile/PaymentMethodsScreen";
+import SavedPlacesScreen from "../screens/profile/SavedPlacesScreen";
+import NotificationSettingsScreen from "../screens/profile/NotificationSettingsScreen";
+import HelpSupportScreen from "../screens/profile/HelpSupportScreen";
+import AboutUsScreen from "../screens/profile/AboutUsScreen";
+import TermsPrivacyScreen from "../screens/profile/TermsPrivacyScreen";
+import SettingsScreen from "../screens/profile/SettingsScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -38,16 +57,15 @@ export default function MainStack({ user }) {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {user ? (
         <>
-          {/* Main App */}
+          {/* ========== MAIN APP ========== */}
           <Stack.Screen name="HomeTabs" component={HomeTabs} />
-          
-          {/* Common Screens */}
+
+          {/* ========== BOOKING FLOW ========== */}
           <Stack.Screen name="ClientInfoPage" component={ClientInfoPage} />
           <Stack.Screen name="QuotationPage" component={QuotationPage} />
           <Stack.Screen name="PaymentPage" component={PaymentPage} />
           <Stack.Screen name="SelectAddressPage" component={SelectAddressPage} />
           <Stack.Screen name="SuccessPage" component={SuccessPage} />
-          <Stack.Screen name="RideHistoryScreen" component={RideHistoryScreen} />
 
           {/* ========== DRIVER SERVICE FLOW ========== */}
           <Stack.Screen name="FindingDriverScreen" component={FindingDriverScreen} />
@@ -56,30 +74,44 @@ export default function MainStack({ user }) {
           <Stack.Screen name="LiveRideScreen" component={LiveRideScreen} />
           <Stack.Screen name="RideInProgressScreen" component={RideInProgressScreen} />
 
-          {/* ========== CAR WASH FLOW (NEW) ========== */}
+          {/* ========== CAR WASH FLOW ========== */}
+          <Stack.Screen name="FindingTechnicianScreen" component={FindingTechnicianScreen} />
+          <Stack.Screen name="TechnicianEnRouteScreen" component={TechnicianEnRouteScreen} />
+          <Stack.Screen name="TechnicianArrivedScreen" component={TechnicianArrivedScreen} />
+          <Stack.Screen name="WashInProgressScreen" component={WashInProgressScreen} />
+          <Stack.Screen name="WashCompletedScreen" component={WashCompletedScreen} />
+
+          {/* ========== PAYMENT SCREENS ========== */}
+          <Stack.Screen name="AdvancePaymentScreen" component={AdvancePaymentScreen} />
+          <Stack.Screen name="FinalPaymentScreen" component={FinalPaymentScreen} />
           <Stack.Screen 
-            name="FindingTechnicianScreen" 
-            component={FindingTechnicianScreen} 
+            name="OrderCompleteScreen" 
+            component={OrderCompleteScreen}
+            options={{ gestureEnabled: false }}
           />
+
+          {/* ========== CANCELLATION & REFUND SCREENS ========== */}
+          <Stack.Screen name="CancelBookingScreen" component={CancelBookingScreen} />
           <Stack.Screen 
-            name="TechnicianEnRouteScreen" 
-            component={TechnicianEnRouteScreen} 
+            name="RefundStatusScreen" 
+            component={RefundStatusScreen}
+            options={{ gestureEnabled: false }}
           />
-          <Stack.Screen 
-            name="TechnicianArrivedScreen" 
-            component={TechnicianArrivedScreen} 
-          />
-          <Stack.Screen 
-            name="WashInProgressScreen" 
-            component={WashInProgressScreen} 
-          />
-          <Stack.Screen 
-            name="WashCompletedScreen" 
-            component={WashCompletedScreen} 
-          />
+
+          {/* ========== PROFILE SCREENS ========== */}
+          <Stack.Screen name="RideHistory" component={RideHistoryScreen} />
+          <Stack.Screen name="RideDetails" component={RideDetailsScreen} />
+          <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} />
+          <Stack.Screen name="SavedPlaces" component={SavedPlacesScreen} />
+          <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+          <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
+          <Stack.Screen name="AboutUs" component={AboutUsScreen} />
+          <Stack.Screen name="TermsPrivacy" component={TermsPrivacyScreen} />
+          <Stack.Screen name="Settings" component={SettingsScreen} />
         </>
       ) : (
         <>
+          {/* ========== AUTH SCREENS ========== */}
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
         </>
