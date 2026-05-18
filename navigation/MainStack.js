@@ -49,6 +49,7 @@ import HelpSupportScreen from "../screens/profile/HelpSupportScreen";
 import AboutUsScreen from "../screens/profile/AboutUsScreen";
 import TermsPrivacyScreen from "../screens/profile/TermsPrivacyScreen";
 import SettingsScreen from "../screens/profile/SettingsScreen";
+import DriverArrivedScreen  from "../screens/driver/DriverArrivedScreen";  // ✅ Add this
 
 const Stack = createNativeStackNavigator();
 
@@ -71,6 +72,7 @@ export default function MainStack({ user }) {
           <Stack.Screen name="FindingDriverScreen" component={FindingDriverScreen} />
           <Stack.Screen name="DriverAcceptedScreen" component={DriverAcceptedScreen} />
           <Stack.Screen name="DriverAssignedScreen" component={DriverAssignedScreen} />
+          <Stack.Screen name="DriverArrivedScreen"  component={DriverArrivedScreen}  />
           <Stack.Screen name="LiveRideScreen" component={LiveRideScreen} />
           <Stack.Screen name="RideInProgressScreen" component={RideInProgressScreen} />
 

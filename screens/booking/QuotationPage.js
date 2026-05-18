@@ -15,58 +15,82 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { API_BASE_URL } from "../../config";
 import { getAuth } from "@react-native-firebase/auth";
 import { calculateSplitAmounts, formatCurrency } from "../../utils/paymentUtils";
+import ScreenWrapper from "../../components/ScreenWrapper";
 
 const { width } = Dimensions.get("window");
 
 // ==================== DESIGN SYSTEM ====================
-const COLORS = {
-  primary: "#00A86B",
-  primaryLight: "#00C77B",
-  primaryDark: "#008F5B",
-  primaryBg: "rgba(0, 168, 107, 0.08)",
-  primaryBgStrong: "rgba(0, 168, 107, 0.15)",
-  secondary: "#3B82F6",
-  accent: "#F59E0B",
-  white: "#FFFFFF",
-  background: "#F5F6F8",
-  cardBg: "#FFFFFF",
+const C = {
+  // ─── PRIMARY: Deep Violet → Royal Blue ───
+  violet: "#3D2B8C",
+  violetDark: "#2A1E6B",
+  violetMid: "#4D3CA0",
+  blue: "#1E40AF",
+  blueDark: "#1E3A8A",
+  blueDeep: "#172554",
+
+  // Soft tints
+  primarySoft: "#EEEAFB",
+  primarySoftDeep: "#DCD4F5",
+  lavenderBg: "#F1EEFB",
+  primaryFade: "rgba(61,43,140,0.08)",
+  primaryGlow: "rgba(61,43,140,0.30)",
+
+  // ─── ACCENT: GOLD ───
+  gold: "#F5C518",
+  goldLight: "#FFD740",
+  goldDark: "#C9A015",
+  goldDeep: "#7A5C00",
+  goldSoft: "#FEF7E0",
+
+  // ─── BACKGROUNDS ───
+  bg: "#F7F7FA",
+  card: "#FFFFFF",
   surface: "#F9FAFB",
-  divider: "#E5E7EB",
-  border: "#E0E0E0",
-  textDark: "#111111",
-  textPrimary: "#1F2937",
-  textSecondary: "#6B7280",
-  textMuted: "#9CA3AF",
-  success: "#10B981",
-  successBg: "#ECFDF5",
+
+  // ─── TEXT ───
+  textDark: "#0F0F1F",
+  textPrimary: "#1F1F33",
+  textMid: "#4A4A66",
+  textLight: "#7B7B95",
+  textFaint: "#A8A8BC",
+
+  // ─── BORDERS ───
+  border: "#EDEDF2",
+  borderMid: "#DDDDE5",
+  divider: "#E8E8EE",
+
+  // ─── PASTELS ───
+  pastelBlue: "#E3F0FF",
+  blueAccent: "#3B82F6",
+  pastelGreen: "#E8F5E9",
+  pastelOrange: "#FFE8D6",
+  orange: "#F59E0B",
+  pastelPurple: "#EFEAFF",
+  pastelRed: "#FEE2E2",
+
+  // ─── SEMANTIC ───
+  success: "#22C55E",
+  successBg: "#E8F8EF",
+  successDark: "#16A34A",
   warning: "#F59E0B",
   warningBg: "#FFFBEB",
   error: "#EF4444",
   errorBg: "#FEF2F2",
-  ctaBlack: "#111111",
-  shadow: "#000000",
+  white: "#FFFFFF",
+  shadow: "#0F0F1F",
 };
 
-const SPACING = {
-  xs: 4,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  xxl: 24,
-  xxxl: 32,
-};
+const SP = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32 };
+const R = { sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, full: 999 };
 
-const RADIUS = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  xxl: 24,
-  full: 100,
+const GRAD = {
+  primary: [C.violet, C.blue],
+  primaryDeep: [C.violetDark, C.blueDeep],
 };
 
 export default function QuotationPage({ route, navigation }) {
@@ -77,11 +101,10 @@ export default function QuotationPage({ route, navigation }) {
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
-  
+  const goldPulse = useRef(new Animated.Value(1)).current;
+
   const cardAnims = useRef([
     new Animated.Value(0),
     new Animated.Value(0),
@@ -90,45 +113,32 @@ export default function QuotationPage({ route, navigation }) {
     new Animated.Value(0),
   ]).current;
 
-  // Calculate split amounts
   const pricing = order?.pricing;
   const splitAmounts = pricing?.total ? calculateSplitAmounts(pricing.total) : null;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        tension: 50,
-        friction: 8,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 8,
-        useNativeDriver: true,
-      }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, tension: 50, friction: 8, useNativeDriver: true }),
     ]).start();
 
     cardAnims.forEach((anim, index) => {
       Animated.timing(anim, {
-        toValue: 1,
-        duration: 400,
-        delay: 150 + index * 100,
-        useNativeDriver: true,
+        toValue: 1, duration: 400, delay: 150 + index * 100, useNativeDriver: true,
       }).start();
     });
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(goldPulse, { toValue: 1.02, duration: 1500, useNativeDriver: true }),
+        Animated.timing(goldPulse, { toValue: 1, duration: 1500, useNativeDriver: true }),
+      ])
+    ).start();
   }, []);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
       if (!firebase_uid) return;
-
       fetch(`${API_BASE_URL}/addresses/${firebase_uid}`)
         .then((res) => res.json())
         .then((data) => {
@@ -136,35 +146,33 @@ export default function QuotationPage({ route, navigation }) {
           setAddresses(data);
           const defaultAddr = data.find((a) => a.is_default);
           const recentAddr = data.find((a) => a.last_used_at);
-          const fallback = data[0];
-          setSelectedAddress(defaultAddr || recentAddr || fallback || null);
+          setSelectedAddress(defaultAddr || recentAddr || data[0] || null);
         });
     });
-
     return unsubscribe;
   }, [navigation, firebase_uid]);
 
   useEffect(() => {
-    if (route.params?.selectedAddress) {
-      setSelectedAddress(route.params.selectedAddress);
-    }
+    if (route.params?.selectedAddress) setSelectedAddress(route.params.selectedAddress);
   }, [route.params?.selectedAddress]);
 
   if (!order) {
     return (
-      <View style={styles.errorContainer}>
-        <View style={styles.errorIcon}>
-          <Ionicons name="alert-circle" size={48} color={COLORS.error} />
+      <ScreenWrapper style={{ backgroundColor: C.bg }}>
+        <StatusBar barStyle="dark-content" backgroundColor={C.bg} translucent={false} />
+        <View style={styles.errorContainer}>
+          <View style={styles.errorIcon}>
+            <Ionicons name="alert-circle" size={48} color={C.error} />
+          </View>
+          <Text style={styles.errorTitle}>Invalid Quotation</Text>
+          <Text style={styles.errorText}>Unable to load quotation data</Text>
+          <TouchableOpacity style={styles.errorButton} onPress={() => navigation.goBack()}>
+            <LinearGradient colors={GRAD.primary} style={styles.errorButtonGrad}>
+              <Text style={styles.errorButtonText}>Go Back</Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
-        <Text style={styles.errorTitle}>Invalid Quotation</Text>
-        <Text style={styles.errorText}>Unable to load quotation data</Text>
-        <TouchableOpacity
-          style={styles.errorButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.errorButtonText}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
+      </ScreenWrapper>
     );
   }
 
@@ -174,8 +182,7 @@ export default function QuotationPage({ route, navigation }) {
 
   const formatDuration = (min) => {
     if (!min) return "—";
-    const h = Math.floor(min / 60);
-    const m = min % 60;
+    const h = Math.floor(min / 60), m = min % 60;
     return h > 0 ? `${h}h ${m}m` : `${m} min`;
   };
 
@@ -186,14 +193,11 @@ export default function QuotationPage({ route, navigation }) {
     return match ? parseFloat(match[0]) : null;
   };
 
-  // ✅ NEW: Navigate to Payment Screen instead of direct booking
   const handleProceedToPayment = () => {
     if (!canProceed) {
       alert("Please select a service address");
       return;
     }
-
-    // Navigate to Advance Payment Screen
     navigation.navigate("AdvancePaymentScreen", {
       order: {
         ...order,
@@ -209,16 +213,13 @@ export default function QuotationPage({ route, navigation }) {
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+    <ScreenWrapper style={{ backgroundColor: C.bg }}>
+      <StatusBar barStyle="dark-content" backgroundColor={C.white} translucent={false} />
 
-      {/* Header */}
+      {/* HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={22} color={COLORS.textDark} />
+        <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.goBack()}>
+          <Ionicons name="chevron-back" size={20} color={C.textDark} />
         </TouchableOpacity>
 
         <View style={styles.headerCenter}>
@@ -226,8 +227,8 @@ export default function QuotationPage({ route, navigation }) {
           <View style={styles.serviceBadge}>
             <MaterialCommunityIcons
               name={isCarWash ? "car-wash" : "steering"}
-              size={12}
-              color={COLORS.primary}
+              size={11}
+              color={C.violet}
             />
             <Text style={styles.serviceBadgeText}>
               {order.service_type?.replace("_", " ").toUpperCase()}
@@ -235,44 +236,37 @@ export default function QuotationPage({ route, navigation }) {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.helpButton}>
-          <Ionicons name="help-circle-outline" size={22} color={COLORS.textDark} />
+        <TouchableOpacity style={styles.headerBtnHelp}>
+          <Ionicons name="headset" size={15} color={C.violet} />
+          <Text style={styles.helpText}>Help</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Content */}
+      {/* CONTENT */}
       <Animated.ScrollView
         style={[
           styles.scrollView,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
-          },
+          { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
         ]}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Service Hub Card */}
+        {/* ─── HUB CARD ─── */}
         <Animated.View
           style={[
             styles.card,
             {
               opacity: cardAnims[0],
-              transform: [
-                {
-                  translateY: cardAnims[0].interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [20, 0],
-                  }),
-                },
-              ],
+              transform: [{
+                translateY: cardAnims[0].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }),
+              }],
             },
           ]}
         >
           <View style={styles.hubCard}>
-            <View style={styles.hubIconWrapper}>
-              <Ionicons name="location" size={24} color={COLORS.white} />
-            </View>
+            <LinearGradient colors={GRAD.primary} style={styles.hubIconWrapper}>
+              <Ionicons name="storefront" size={22} color={C.white} />
+            </LinearGradient>
             <View style={styles.hubInfo}>
               <Text style={styles.hubLabel}>SERVICE HUB</Text>
               <Text style={styles.hubName}>{order.hub?.name || "—"}</Text>
@@ -282,74 +276,81 @@ export default function QuotationPage({ route, navigation }) {
             </View>
             {order.hub?.rating && (
               <View style={styles.ratingBadge}>
-                <Ionicons name="star" size={12} color={COLORS.warning} />
+                <Ionicons name="star" size={11} color={C.gold} />
                 <Text style={styles.ratingText}>{order.hub.rating}</Text>
               </View>
             )}
           </View>
 
-          {/* Route Info */}
           <View style={styles.routeStrip}>
+            <LinearGradient
+              colors={[C.primarySoft, C.lavenderBg]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={StyleSheet.absoluteFill}
+            />
             <View style={styles.routeItem}>
-              <Ionicons name="navigate-outline" size={16} color={COLORS.primary} />
+              <View style={styles.routeIconWrap}>
+                <Ionicons name="navigate" size={14} color={C.violet} />
+              </View>
               <Text style={styles.routeValue}>{order.route?.distance || "—"}</Text>
               <Text style={styles.routeLabel}>Distance</Text>
             </View>
             <View style={styles.routeDivider} />
             <View style={styles.routeItem}>
-              <Ionicons name="time-outline" size={16} color={COLORS.primary} />
+              <View style={styles.routeIconWrap}>
+                <Ionicons name="time" size={14} color={C.violet} />
+              </View>
               <Text style={styles.routeValue}>{order.route?.duration || "—"}</Text>
-              <Text style={styles.routeLabel}>Travel Time</Text>
+              <Text style={styles.routeLabel}>Travel</Text>
             </View>
             <View style={styles.routeDivider} />
             <View style={styles.routeItem}>
-              <Ionicons name="timer-outline" size={16} color={COLORS.primary} />
-              <Text style={styles.routeValue}>
-                {formatDuration(pricing?.estimatedTime)}
-              </Text>
+              <View style={styles.routeIconWrap}>
+                <Ionicons name="timer" size={14} color={C.violet} />
+              </View>
+              <Text style={styles.routeValue}>{formatDuration(pricing?.estimatedTime)}</Text>
               <Text style={styles.routeLabel}>Total Est.</Text>
             </View>
           </View>
         </Animated.View>
 
-        {/* Booking Details Card */}
+        {/* ─── BOOKING DETAILS ─── */}
         <Animated.View
           style={[
             styles.card,
             {
               opacity: cardAnims[1],
-              transform: [
-                {
-                  translateY: cardAnims[1].interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [20, 0],
-                  }),
-                },
-              ],
+              transform: [{
+                translateY: cardAnims[1].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }),
+              }],
             },
           ]}
         >
           <View style={styles.cardHeader}>
             <View style={styles.cardIconWrapper}>
-              <Ionicons name="car-sport" size={18} color={COLORS.primary} />
+              <Ionicons name="car-sport" size={16} color={C.violet} />
             </View>
             <Text style={styles.cardTitle}>Booking Details</Text>
           </View>
 
           <View style={styles.detailsContainer}>
             <View style={styles.detailRow}>
-              <View style={styles.detailIconBg}>
-                <Ionicons name="car" size={16} color={COLORS.secondary} />
+              <View style={[styles.detailIconBg, { backgroundColor: C.pastelBlue }]}>
+                <Ionicons name="car" size={16} color={C.blueAccent} />
               </View>
               <View style={styles.detailInfo}>
                 <Text style={styles.detailLabel}>Vehicle Type</Text>
                 <Text style={styles.detailValue}>{order.vehicle?.name || "—"}</Text>
+                {order.vehicle?.subtitle && (
+                  <Text style={styles.detailDesc}>{order.vehicle.subtitle}</Text>
+                )}
               </View>
             </View>
 
             <View style={styles.detailRow}>
-              <View style={[styles.detailIconBg, { backgroundColor: "#F3E8FF" }]}>
-                <Ionicons name="sparkles" size={16} color="#8B5CF6" />
+              <View style={[styles.detailIconBg, { backgroundColor: C.pastelPurple }]}>
+                <Ionicons name="sparkles" size={16} color={C.violet} />
               </View>
               <View style={styles.detailInfo}>
                 <Text style={styles.detailLabel}>Package</Text>
@@ -362,11 +363,14 @@ export default function QuotationPage({ route, navigation }) {
 
             {order.package?.features && (
               <View style={styles.featuresContainer}>
-                <Text style={styles.featuresTitle}>Included Services</Text>
+                <View style={styles.featuresHeader}>
+                  <Ionicons name="checkmark-circle" size={14} color={C.violet} />
+                  <Text style={styles.featuresTitle}>Included Services</Text>
+                </View>
                 <View style={styles.featuresList}>
                   {order.package.features.map((feature, index) => (
                     <View key={index} style={styles.featureItem}>
-                      <Ionicons name="checkmark-circle" size={14} color={COLORS.success} />
+                      <View style={styles.featureBullet} />
                       <Text style={styles.featureText}>{feature}</Text>
                     </View>
                   ))}
@@ -376,27 +380,22 @@ export default function QuotationPage({ route, navigation }) {
           </View>
         </Animated.View>
 
-        {/* Address Card (Car Wash Only) */}
+        {/* ─── ADDRESS CARD (Car Wash) ─── */}
         {isCarWash && (
           <Animated.View
             style={[
               styles.card,
               {
                 opacity: cardAnims[2],
-                transform: [
-                  {
-                    translateY: cardAnims[2].interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [20, 0],
-                    }),
-                  },
-                ],
+                transform: [{
+                  translateY: cardAnims[2].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }),
+                }],
               },
             ]}
           >
             <View style={styles.cardHeader}>
-              <View style={[styles.cardIconWrapper, { backgroundColor: COLORS.successBg }]}>
-                <Ionicons name="home" size={18} color={COLORS.success} />
+              <View style={[styles.cardIconWrapper, { backgroundColor: C.successBg }]}>
+                <Ionicons name="home" size={16} color={C.success} />
               </View>
               <Text style={styles.cardTitle}>Service Address</Text>
             </View>
@@ -407,14 +406,12 @@ export default function QuotationPage({ route, navigation }) {
                   <View style={styles.addressTypeTag}>
                     <Ionicons
                       name={
-                        selectedAddress.label === "home"
-                          ? "home"
-                          : selectedAddress.label === "office"
-                          ? "business"
+                        selectedAddress.label === "home" ? "home"
+                          : selectedAddress.label === "office" ? "business"
                           : "location"
                       }
-                      size={12}
-                      color={COLORS.primary}
+                      size={11}
+                      color={C.violet}
                     />
                     <Text style={styles.addressTypeText}>
                       {selectedAddress.label || "Address"}
@@ -428,43 +425,35 @@ export default function QuotationPage({ route, navigation }) {
 
                 <TouchableOpacity
                   style={styles.changeButton}
-                  onPress={() =>
-                    navigation.navigate("SelectAddressPage", {
-                      firebase_uid,
-                      selectedId: selectedAddress?.id,
-                    })
-                  }
+                  onPress={() => navigation.navigate("SelectAddressPage", {
+                    firebase_uid, selectedId: selectedAddress?.id,
+                  })}
                 >
                   <Text style={styles.changeButtonText}>Change</Text>
-                  <Ionicons name="chevron-forward" size={14} color={COLORS.primary} />
+                  <Ionicons name="chevron-forward" size={13} color={C.violet} />
                 </TouchableOpacity>
               </View>
             ) : (
               <TouchableOpacity
                 style={styles.addAddressButton}
-                onPress={() =>
-                  navigation.navigate("ClientInfoPage", {
-                    order,
-                    fromQuotation: true,
-                  })
-                }
+                onPress={() => navigation.navigate("ClientInfoPage", {
+                  order, fromQuotation: true,
+                })}
               >
-                <View style={styles.addAddressIcon}>
-                  <Ionicons name="add" size={20} color={COLORS.primary} />
-                </View>
+                <LinearGradient colors={[C.primarySoft, C.lavenderBg]} style={styles.addAddressIcon}>
+                  <Ionicons name="add" size={20} color={C.violet} />
+                </LinearGradient>
                 <View style={styles.addAddressInfo}>
                   <Text style={styles.addAddressTitle}>Add Service Address</Text>
-                  <Text style={styles.addAddressSubtitle}>
-                    Required for service delivery
-                  </Text>
+                  <Text style={styles.addAddressSubtitle}>Required for service delivery</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+                <Ionicons name="chevron-forward" size={18} color={C.textLight} />
               </TouchableOpacity>
             )}
           </Animated.View>
         )}
 
-        {/* ✅ NEW: Payment Split Card */}
+        {/* ─── PAYMENT SPLIT CARD ─── */}
         {splitAmounts && (
           <Animated.View
             style={[
@@ -472,36 +461,37 @@ export default function QuotationPage({ route, navigation }) {
               styles.paymentSplitCard,
               {
                 opacity: cardAnims[3],
-                transform: [
-                  {
-                    translateY: cardAnims[3].interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [20, 0],
-                    }),
-                  },
-                ],
+                transform: [{
+                  translateY: cardAnims[3].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }),
+                }],
               },
             ]}
           >
-            <View style={styles.paymentSplitHeader}>
+            <LinearGradient
+              colors={[C.primarySoft, C.lavenderBg]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.paymentSplitHeader}
+            >
               <View style={styles.paymentSplitHeaderLeft}>
-                <Ionicons name="card-outline" size={18} color={COLORS.primary} />
+                <View style={styles.paymentSplitHeaderIcon}>
+                  <Ionicons name="card" size={14} color={C.violet} />
+                </View>
                 <Text style={styles.paymentSplitTitle}>Payment Structure</Text>
               </View>
               <View style={styles.splitBadge}>
-                <Ionicons name="shield-checkmark" size={12} color={COLORS.success} />
-                <Text style={styles.splitBadgeText}>Secure Split</Text>
+                <Ionicons name="shield-checkmark" size={11} color={C.success} />
+                <Text style={styles.splitBadgeText}>Secure</Text>
               </View>
-            </View>
+            </LinearGradient>
 
             <View style={styles.paymentSplitBody}>
-              {/* Advance Payment */}
               <View style={styles.splitItem}>
                 <View style={styles.splitItemLeft}>
-                  <View style={[styles.splitDot, styles.splitDotAdvance]} />
+                  <LinearGradient colors={GRAD.primary} style={styles.splitDot} />
                   <View>
-                    <Text style={styles.splitItemLabel}>Pay Now (33.33%)</Text>
-                    <Text style={styles.splitItemNote}>To confirm booking</Text>
+                    <Text style={styles.splitItemLabel}>Pay Now</Text>
+                    <Text style={styles.splitItemNote}>33.33% • To confirm booking</Text>
                   </View>
                 </View>
                 <Text style={styles.splitItemAmount}>
@@ -509,68 +499,66 @@ export default function QuotationPage({ route, navigation }) {
                 </Text>
               </View>
 
-              {/* Connector */}
               <View style={styles.splitConnector}>
                 <View style={styles.splitConnectorLine} />
                 <View style={styles.splitConnectorIcon}>
-                  <Ionicons name="arrow-down" size={12} color={COLORS.textMuted} />
+                  <Ionicons name="arrow-down" size={11} color={C.textLight} />
                 </View>
                 <View style={styles.splitConnectorLine} />
               </View>
 
-              {/* Remaining Payment */}
               <View style={styles.splitItem}>
                 <View style={styles.splitItemLeft}>
-                  <View style={[styles.splitDot, styles.splitDotRemaining]} />
+                  <View style={styles.splitDotMuted} />
                   <View>
-                    <Text style={styles.splitItemLabel}>After Service (66.67%)</Text>
-                    <Text style={styles.splitItemNote}>Pay on completion</Text>
+                    <Text style={styles.splitItemLabel}>After Service</Text>
+                    <Text style={styles.splitItemNote}>66.67% • Pay on completion</Text>
                   </View>
                 </View>
-                <Text style={[styles.splitItemAmount, styles.splitItemAmountMuted]}>
+                <Text style={[styles.splitItemAmount, { color: C.textLight }]}>
                   {formatCurrency(splitAmounts.remainingAmount)}
                 </Text>
               </View>
             </View>
 
-            {/* Info Banner */}
             <View style={styles.splitInfoBanner}>
-              <Ionicons name="information-circle" size={16} color={COLORS.secondary} />
+              <Ionicons name="information-circle" size={14} color={C.violet} />
               <Text style={styles.splitInfoText}>
-                Same driver will handle pick-up, service & drop-off
+                Same driver handles pickup, service & dropoff
               </Text>
             </View>
           </Animated.View>
         )}
 
-        {/* Price Breakdown Card */}
+        {/* ─── PRICE BREAKDOWN ─── */}
         <Animated.View
           style={[
             styles.card,
-            styles.priceCard,
             {
               opacity: cardAnims[4],
-              transform: [
-                {
-                  translateY: cardAnims[4].interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [20, 0],
-                  }),
-                },
-              ],
+              transform: [{
+                translateY: cardAnims[4].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }),
+              }],
             },
           ]}
         >
-          <View style={styles.priceHeader}>
+          <LinearGradient
+            colors={[C.primarySoft, C.lavenderBg]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.priceHeader}
+          >
             <View style={styles.priceHeaderLeft}>
-              <Ionicons name="receipt-outline" size={18} color={COLORS.primary} />
+              <View style={styles.paymentSplitHeaderIcon}>
+                <Ionicons name="receipt" size={14} color={C.violet} />
+              </View>
               <Text style={styles.priceTitle}>Price Breakdown</Text>
             </View>
             <View style={styles.verifiedBadge}>
-              <Ionicons name="shield-checkmark" size={12} color={COLORS.success} />
+              <Ionicons name="shield-checkmark" size={11} color={C.success} />
               <Text style={styles.verifiedText}>Best Price</Text>
             </View>
-          </View>
+          </LinearGradient>
 
           <View style={styles.priceBody}>
             <View style={styles.priceRow}>
@@ -582,7 +570,7 @@ export default function QuotationPage({ route, navigation }) {
 
             <View style={styles.priceRow}>
               <Text style={styles.priceLabel}>
-                Distance Charge ({pricing?.distanceKm?.toFixed(1)} km)
+                Distance ({pricing?.distanceKm?.toFixed(1)} km)
               </Text>
               <Text style={styles.priceValue}>₹{pricing?.distanceCharge || "—"}</Text>
             </View>
@@ -590,15 +578,13 @@ export default function QuotationPage({ route, navigation }) {
             {pricing?.peakSurge > 0 && (
               <View style={styles.priceRow}>
                 <View style={styles.priceLabelRow}>
-                  <Text style={[styles.priceLabel, { color: COLORS.warning }]}>
-                    Peak Hour Surge
-                  </Text>
+                  <Text style={[styles.priceLabel, { color: C.orange }]}>Peak Hour Surge</Text>
                   <View style={styles.peakTag}>
-                    <Ionicons name="flash" size={10} color={COLORS.warning} />
+                    <Ionicons name="flash" size={9} color={C.orange} />
                     <Text style={styles.peakTagText}>+20%</Text>
                   </View>
                 </View>
-                <Text style={[styles.priceValue, { color: COLORS.warning }]}>
+                <Text style={[styles.priceValue, { color: C.orange }]}>
                   +₹{pricing.peakSurge}
                 </Text>
               </View>
@@ -621,732 +607,451 @@ export default function QuotationPage({ route, navigation }) {
                 <Text style={styles.totalLabel}>Total Amount</Text>
                 <Text style={styles.totalNote}>Inclusive of all taxes</Text>
               </View>
-              <Text style={styles.totalValue}>
-                ₹{pricing?.total?.toLocaleString("en-IN") || "—"}
-              </Text>
+              <View style={styles.totalRight}>
+                <Text style={styles.totalValue}>
+                  ₹{pricing?.total?.toLocaleString("en-IN") || "—"}
+                </Text>
+              </View>
             </View>
           </View>
 
-          <View style={styles.savingsBanner}>
-            <Ionicons name="pricetag" size={14} color={COLORS.success} />
+          <LinearGradient
+            colors={[C.successBg, "#D1FAE5"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.savingsBanner}
+          >
+            <Ionicons name="pricetag" size={14} color={C.successDark} />
             <Text style={styles.savingsText}>
               You're saving ₹{Math.round((pricing?.total || 0) * 0.15)} with this package!
             </Text>
-          </View>
+          </LinearGradient>
         </Animated.View>
 
-        <View style={{ height: 120 }} />
+        <View style={{ height: 130 }} />
       </Animated.ScrollView>
 
-      {/* ✅ UPDATED: Bottom Action Bar with Split Payment */}
+      {/* ─── BOTTOM BAR ─── */}
       <View style={styles.bottomBar}>
         <View style={styles.bottomBarContent}>
           <View style={styles.pricePreview}>
-            <Text style={styles.payLabel}>Pay Now</Text>
+            <Text style={styles.payLabel}>PAY NOW</Text>
             <Text style={styles.payAmount}>
               {formatCurrency(splitAmounts?.advanceAmount || 0)}
             </Text>
-            <Text style={styles.paySubtext}>of {formatCurrency(pricing?.total || 0)}</Text>
+            <Text style={styles.paySubtext}>
+              of {formatCurrency(pricing?.total || 0)}
+            </Text>
           </View>
 
           <View style={styles.actionButtons}>
             <TouchableOpacity
               style={styles.modifyButton}
               onPress={() => navigation.goBack()}
+              activeOpacity={0.7}
             >
-              <Ionicons name="create-outline" size={20} color={COLORS.textSecondary} />
+              <Ionicons name="create-outline" size={18} color={C.violet} />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.confirmButton,
-                !canProceed && styles.confirmButtonDisabled,
-              ]}
-              onPress={handleProceedToPayment}
-              disabled={!canProceed || isLoading}
-              activeOpacity={0.85}
-            >
-              {isLoading ? (
-                <ActivityIndicator size="small" color={COLORS.white} />
-              ) : (
-                <>
-                  <Ionicons name="card" size={18} color={COLORS.white} />
-                  <Text style={styles.confirmButtonText}>Pay & Book</Text>
-                  <Ionicons name="arrow-forward" size={18} color={COLORS.white} />
-                </>
-              )}
-            </TouchableOpacity>
+            <Animated.View style={[{ flex: 1, transform: [{ scale: goldPulse }] }]}>
+              <TouchableOpacity
+                style={[
+                  styles.confirmButton,
+                  !canProceed && styles.confirmButtonDisabled,
+                ]}
+                onPress={handleProceedToPayment}
+                disabled={!canProceed || isLoading}
+                activeOpacity={0.85}
+              >
+                {isLoading ? (
+                  <ActivityIndicator size="small" color={C.textDark} />
+                ) : (
+                  <>
+                    <View style={styles.confirmIconLeft}>
+                      <Ionicons name="card" size={15} color={C.textDark} />
+                    </View>
+                    <Text style={styles.confirmButtonText}>Pay & Book</Text>
+                    <View style={styles.confirmIconRight}>
+                      <Ionicons name="arrow-forward" size={14} color={C.textDark} />
+                    </View>
+                  </>
+                )}
+              </TouchableOpacity>
+            </Animated.View>
           </View>
         </View>
       </View>
-    </View>
+    </ScreenWrapper>
   );
 }
 
 // ==================== STYLES ====================
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-
-  // Error State
+  // ─── Error State ───
   errorContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: COLORS.background,
-    padding: SPACING.xxl,
+    flex: 1, justifyContent: "center", alignItems: "center",
+    padding: SP.xxl,
   },
   errorIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: COLORS.errorBg,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: SPACING.lg,
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: C.errorBg,
+    justifyContent: "center", alignItems: "center",
+    marginBottom: SP.lg,
   },
-  errorTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: COLORS.textDark,
-    marginBottom: SPACING.xs,
-  },
-  errorText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.xl,
-  },
-  errorButton: {
-    backgroundColor: COLORS.ctaBlack,
-    paddingHorizontal: SPACING.xxl,
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.md,
-  },
-  errorButtonText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: COLORS.white,
-  },
+  errorTitle: { fontSize: 18, fontWeight: "800", color: C.textDark, marginBottom: SP.xs },
+  errorText: { fontSize: 14, color: C.textLight, marginBottom: SP.xl },
+  errorButton: { borderRadius: R.full, overflow: "hidden" },
+  errorButtonGrad: { paddingHorizontal: SP.xxl, paddingVertical: SP.md },
+  errorButtonText: { fontSize: 15, fontWeight: "700", color: C.white },
 
-  // Header
+  // ─── Header (NO hardcoded paddingTop) ───
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingTop: Platform.OS === "ios" ? 54 : 44,
-    paddingBottom: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingTop: SP.md,
+    paddingBottom: SP.md, paddingHorizontal: SP.lg,
+    backgroundColor: C.white,
+    borderBottomWidth: 1, borderBottomColor: C.border,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: RADIUS.md,
-    backgroundColor: COLORS.surface,
-    justifyContent: "center",
-    alignItems: "center",
+  headerBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: C.surface,
+    justifyContent: "center", alignItems: "center",
   },
-  headerCenter: {
-    alignItems: "center",
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: COLORS.textDark,
-  },
+  headerCenter: { alignItems: "center", flex: 1 },
+  headerTitle: { fontSize: 16, fontWeight: "800", color: C.textDark, letterSpacing: -0.3 },
   serviceBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.primaryBg,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 3,
-    borderRadius: RADIUS.full,
-    marginTop: 4,
-    gap: 4,
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: C.primarySoft,
+    paddingHorizontal: SP.sm, paddingVertical: 3,
+    borderRadius: R.full, marginTop: 4,
   },
-  serviceBadgeText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: COLORS.primary,
-    letterSpacing: 0.3,
+  serviceBadgeText: { fontSize: 10, fontWeight: "700", color: C.violet, letterSpacing: 0.4 },
+  headerBtnHelp: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: SP.md, paddingVertical: 8,
+    borderRadius: R.full, backgroundColor: C.primarySoft,
   },
-  helpButton: {
-    width: 40,
-    height: 40,
-    borderRadius: RADIUS.md,
-    backgroundColor: COLORS.surface,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  helpText: { fontSize: 12, fontWeight: "700", color: C.violet },
 
-  // Scroll View
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: SPACING.lg,
-  },
+  // ─── Scroll ───
+  scrollView: { flex: 1 },
+  scrollContent: { padding: SP.lg },
 
-  // Card Base
+  // ─── Card Base ───
   card: {
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.lg,
-    marginBottom: SPACING.md,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: C.card, borderRadius: R.lg,
+    marginBottom: SP.md,
+    borderWidth: 1, borderColor: C.border,
+    shadowColor: C.violet, shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
     overflow: "hidden",
   },
   cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: SPACING.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
-    gap: SPACING.sm,
+    flexDirection: "row", alignItems: "center", gap: SP.sm,
+    padding: SP.lg,
+    borderBottomWidth: 1, borderBottomColor: C.border,
   },
   cardIconWrapper: {
-    width: 32,
-    height: 32,
-    borderRadius: RADIUS.sm,
-    backgroundColor: COLORS.primaryBg,
-    justifyContent: "center",
-    alignItems: "center",
+    width: 32, height: 32, borderRadius: R.sm,
+    backgroundColor: C.primarySoft,
+    justifyContent: "center", alignItems: "center",
   },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.textDark,
-  },
+  cardTitle: { fontSize: 14, fontWeight: "800", color: C.textDark, letterSpacing: -0.2 },
 
-  // Hub Card
+  // ─── Hub Card ───
   hubCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: SPACING.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
+    flexDirection: "row", alignItems: "center",
+    padding: SP.lg,
+    borderBottomWidth: 1, borderBottomColor: C.border,
   },
   hubIconWrapper: {
-    width: 48,
-    height: 48,
-    borderRadius: RADIUS.md,
-    backgroundColor: COLORS.primary,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: SPACING.md,
+    width: 50, height: 50, borderRadius: 25,
+    justifyContent: "center", alignItems: "center",
+    marginRight: SP.md,
+    shadowColor: C.violet, shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
   },
-  hubInfo: {
-    flex: 1,
-  },
+  hubInfo: { flex: 1 },
   hubLabel: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: COLORS.textMuted,
-    letterSpacing: 0.5,
-    marginBottom: 2,
+    fontSize: 9, fontWeight: "700", color: C.textLight,
+    letterSpacing: 1, marginBottom: 2,
   },
-  hubName: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.textDark,
-  },
-  hubAddress: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
+  hubName: { fontSize: 15, fontWeight: "800", color: C.textDark },
+  hubAddress: { fontSize: 12, color: C.textLight, marginTop: 2, fontWeight: "500" },
   ratingBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.warningBg,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: RADIUS.full,
-    gap: 4,
+    flexDirection: "row", alignItems: "center", gap: 3,
+    backgroundColor: C.goldSoft,
+    paddingHorizontal: SP.sm, paddingVertical: 4,
+    borderRadius: R.full,
   },
-  ratingText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: COLORS.warning,
-  },
+  ratingText: { fontSize: 11, fontWeight: "800", color: C.goldDeep },
 
-  // Route Strip
+  // ─── Route Strip ───
   routeStrip: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: SPACING.md,
+    flexDirection: "row", alignItems: "center",
+    padding: SP.md,
+    overflow: "hidden",
   },
-  routeItem: {
-    flex: 1,
-    alignItems: "center",
+  routeItem: { flex: 1, alignItems: "center" },
+  routeIconWrap: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: C.white,
+    justifyContent: "center", alignItems: "center",
+    marginBottom: 4,
   },
-  routeValue: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: COLORS.textDark,
-    marginTop: 4,
-  },
-  routeLabel: {
-    fontSize: 10,
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
+  routeValue: { fontSize: 13, fontWeight: "800", color: C.textDark },
+  routeLabel: { fontSize: 10, color: C.textLight, marginTop: 2, fontWeight: "600" },
   routeDivider: {
-    width: 1,
-    height: 32,
-    backgroundColor: COLORS.divider,
+    width: 1, height: 36, backgroundColor: C.borderMid, opacity: 0.6,
   },
 
-  // Details
-  detailsContainer: {
-    padding: SPACING.lg,
-    gap: SPACING.md,
-  },
+  // ─── Details ───
+  detailsContainer: { padding: SP.lg, gap: SP.md },
   detailRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: SPACING.md,
+    flexDirection: "row", alignItems: "flex-start", gap: SP.md,
   },
   detailIconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: RADIUS.sm,
-    backgroundColor: "#DBEAFE",
-    justifyContent: "center",
-    alignItems: "center",
+    width: 38, height: 38, borderRadius: R.sm,
+    justifyContent: "center", alignItems: "center",
   },
-  detailInfo: {
-    flex: 1,
-  },
+  detailInfo: { flex: 1 },
   detailLabel: {
-    fontSize: 11,
-    fontWeight: "500",
-    color: COLORS.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
+    fontSize: 10, fontWeight: "700", color: C.textLight,
+    textTransform: "uppercase", letterSpacing: 0.5,
   },
   detailValue: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.textDark,
-    marginTop: 2,
+    fontSize: 14, fontWeight: "800", color: C.textDark, marginTop: 2,
   },
-  detailDesc: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
+  detailDesc: { fontSize: 12, color: C.textLight, marginTop: 2, fontWeight: "500" },
 
-  // Features
+  // ─── Features ───
   featuresContainer: {
-    backgroundColor: COLORS.surface,
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-    marginTop: SPACING.sm,
+    backgroundColor: C.lavenderBg,
+    padding: SP.md,
+    borderRadius: R.md,
+    marginTop: SP.sm,
+  },
+  featuresHeader: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    marginBottom: SP.sm,
   },
   featuresTitle: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.sm,
+    fontSize: 12, fontWeight: "800", color: C.violet,
+    letterSpacing: -0.1,
   },
-  featuresList: {
-    gap: SPACING.xs,
-  },
+  featuresList: { gap: 6 },
   featureItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING.sm,
+    flexDirection: "row", alignItems: "center", gap: SP.sm,
   },
-  featureText: {
-    fontSize: 13,
-    color: COLORS.textPrimary,
+  featureBullet: {
+    width: 5, height: 5, borderRadius: 2.5,
+    backgroundColor: C.violet,
   },
+  featureText: { fontSize: 12, color: C.textPrimary, fontWeight: "500" },
 
-  // Address
+  // ─── Address ───
   addressContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: SPACING.lg,
-    gap: SPACING.md,
+    flexDirection: "row", alignItems: "center",
+    padding: SP.lg, gap: SP.md,
   },
-  addressInfo: {
-    flex: 1,
-  },
+  addressInfo: { flex: 1 },
   addressTypeTag: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.primaryBg,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 3,
-    borderRadius: RADIUS.sm,
-    alignSelf: "flex-start",
-    marginBottom: SPACING.xs,
-    gap: 4,
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: C.primarySoft,
+    paddingHorizontal: SP.sm, paddingVertical: 3,
+    borderRadius: R.sm, alignSelf: "flex-start",
+    marginBottom: SP.xs,
   },
   addressTypeText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: COLORS.primary,
+    fontSize: 10, fontWeight: "700", color: C.violet,
     textTransform: "capitalize",
   },
-  addressText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.textDark,
-    lineHeight: 20,
-  },
-  addressCity: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
+  addressText: { fontSize: 13, fontWeight: "700", color: C.textDark, lineHeight: 18 },
+  addressCity: { fontSize: 11, color: C.textLight, marginTop: 2, fontWeight: "500" },
   changeButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.primaryBg,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.sm,
-    gap: 4,
+    flexDirection: "row", alignItems: "center", gap: 3,
+    backgroundColor: C.primarySoft,
+    paddingHorizontal: SP.md, paddingVertical: SP.sm,
+    borderRadius: R.full,
   },
-  changeButtonText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.primary,
-  },
+  changeButtonText: { fontSize: 12, fontWeight: "700", color: C.violet },
   addAddressButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: SPACING.lg,
-    gap: SPACING.md,
+    flexDirection: "row", alignItems: "center",
+    padding: SP.lg, gap: SP.md,
   },
   addAddressIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: RADIUS.md,
-    backgroundColor: COLORS.primaryBg,
-    justifyContent: "center",
-    alignItems: "center",
+    width: 42, height: 42, borderRadius: R.md,
+    justifyContent: "center", alignItems: "center",
   },
-  addAddressInfo: {
-    flex: 1,
-  },
-  addAddressTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.textDark,
-  },
-  addAddressSubtitle: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
+  addAddressInfo: { flex: 1 },
+  addAddressTitle: { fontSize: 13, fontWeight: "800", color: C.textDark },
+  addAddressSubtitle: { fontSize: 11, color: C.textLight, marginTop: 2, fontWeight: "500" },
 
-  // ✅ NEW: Payment Split Card Styles
+  // ─── Payment Split Card ───
   paymentSplitCard: {
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    borderStyle: "dashed",
+    borderWidth: 1.5, borderColor: C.violet + "40",
   },
   paymentSplitHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: COLORS.primaryBg,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: SP.lg, paddingVertical: SP.md,
   },
   paymentSplitHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING.sm,
+    flexDirection: "row", alignItems: "center", gap: SP.sm,
   },
-  paymentSplitTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: COLORS.primary,
+  paymentSplitHeaderIcon: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: C.white,
+    justifyContent: "center", alignItems: "center",
   },
+  paymentSplitTitle: { fontSize: 13, fontWeight: "800", color: C.violet },
   splitBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.successBg,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 3,
-    borderRadius: RADIUS.sm,
-    gap: 4,
+    flexDirection: "row", alignItems: "center", gap: 3,
+    backgroundColor: C.successBg,
+    paddingHorizontal: SP.sm, paddingVertical: 4,
+    borderRadius: R.full,
   },
-  splitBadgeText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: COLORS.success,
-  },
-  paymentSplitBody: {
-    padding: SPACING.lg,
-  },
+  splitBadgeText: { fontSize: 10, fontWeight: "700", color: C.successDark },
+  paymentSplitBody: { padding: SP.lg },
   splitItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
   },
   splitItemLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING.md,
+    flexDirection: "row", alignItems: "center", gap: SP.md,
   },
   splitDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 14, height: 14, borderRadius: 7,
+    shadowColor: C.violet, shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3, shadowRadius: 3, elevation: 3,
   },
-  splitDotAdvance: {
-    backgroundColor: COLORS.primary,
+  splitDotMuted: {
+    width: 14, height: 14, borderRadius: 7,
+    backgroundColor: C.white,
+    borderWidth: 2.5, borderColor: C.borderMid,
   },
-  splitDotRemaining: {
-    backgroundColor: COLORS.textMuted,
-    borderWidth: 2,
-    borderColor: COLORS.divider,
-  },
-  splitItemLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.textDark,
-  },
-  splitItemNote: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
-  splitItemAmount: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.primary,
-  },
-  splitItemAmountMuted: {
-    color: COLORS.textMuted,
-  },
+  splitItemLabel: { fontSize: 13, fontWeight: "800", color: C.textDark },
+  splitItemNote: { fontSize: 11, color: C.textLight, marginTop: 2, fontWeight: "500" },
+  splitItemAmount: { fontSize: 16, fontWeight: "900", color: C.violet, letterSpacing: -0.3 },
   splitConnector: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: SPACING.sm,
-    paddingLeft: 5,
+    flexDirection: "row", alignItems: "center",
+    paddingVertical: SP.sm, paddingLeft: 6,
   },
   splitConnectorLine: {
-    height: 12,
-    width: 2,
-    backgroundColor: COLORS.divider,
-    marginLeft: 5,
+    height: 12, width: 2, backgroundColor: C.borderMid, marginLeft: 5,
   },
-  splitConnectorIcon: {
-    marginLeft: -4,
-  },
+  splitConnectorIcon: { marginLeft: -4 },
   splitInfoBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#EFF6FF",
-    paddingVertical: SPACING.sm,
-    gap: SPACING.sm,
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: SP.sm,
+    backgroundColor: C.primarySoft,
+    paddingVertical: SP.sm + 2,
   },
-  splitInfoText: {
-    fontSize: 12,
-    color: COLORS.secondary,
-    fontWeight: "500",
-  },
+  splitInfoText: { fontSize: 12, color: C.violet, fontWeight: "600" },
 
-  // Price Card
-  priceCard: {
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-  },
+  // ─── Price ───
   priceHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: COLORS.primaryBg,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: SP.lg, paddingVertical: SP.md,
   },
   priceHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING.sm,
+    flexDirection: "row", alignItems: "center", gap: SP.sm,
   },
-  priceTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: COLORS.primary,
-  },
+  priceTitle: { fontSize: 13, fontWeight: "800", color: C.violet },
   verifiedBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.successBg,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 3,
-    borderRadius: RADIUS.sm,
-    gap: 4,
+    flexDirection: "row", alignItems: "center", gap: 3,
+    backgroundColor: C.successBg,
+    paddingHorizontal: SP.sm, paddingVertical: 4,
+    borderRadius: R.full,
   },
-  verifiedText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: COLORS.success,
-  },
-  priceBody: {
-    padding: SPACING.lg,
-  },
+  verifiedText: { fontSize: 10, fontWeight: "700", color: C.successDark },
+  priceBody: { padding: SP.lg },
   priceRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: SPACING.sm,
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    marginBottom: SP.sm + 2,
   },
-  priceLabelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING.sm,
-  },
-  priceLabel: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-  },
-  priceValue: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.textDark,
-  },
+  priceLabelRow: { flexDirection: "row", alignItems: "center", gap: SP.sm },
+  priceLabel: { fontSize: 13, color: C.textMid, fontWeight: "500" },
+  priceValue: { fontSize: 13, fontWeight: "700", color: C.textDark },
   peakTag: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.warningBg,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: RADIUS.sm,
-    gap: 2,
+    flexDirection: "row", alignItems: "center", gap: 2,
+    backgroundColor: C.warningBg,
+    paddingHorizontal: 6, paddingVertical: 2,
+    borderRadius: R.sm,
   },
-  peakTagText: {
-    fontSize: 9,
-    fontWeight: "600",
-    color: COLORS.warning,
-  },
+  peakTagText: { fontSize: 9, fontWeight: "700", color: C.warning },
   priceDivider: {
-    height: 1,
-    backgroundColor: COLORS.divider,
-    marginVertical: SPACING.md,
+    height: 1, backgroundColor: C.border, marginVertical: SP.md,
   },
   totalRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
   },
-  totalLabel: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.textDark,
-  },
-  totalNote: {
-    fontSize: 10,
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
-  totalValue: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: COLORS.primary,
-  },
+  totalLabel: { fontSize: 14, fontWeight: "800", color: C.textDark },
+  totalNote: { fontSize: 10, color: C.textLight, marginTop: 2, fontWeight: "500" },
+  totalRight: { alignItems: "flex-end" },
+  totalValue: { fontSize: 24, fontWeight: "900", color: C.violet, letterSpacing: -0.5 },
   savingsBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: COLORS.successBg,
-    paddingVertical: SPACING.sm,
-    gap: SPACING.sm,
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    paddingVertical: SP.sm + 2, gap: SP.sm,
   },
-  savingsText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: COLORS.success,
-  },
+  savingsText: { fontSize: 12, fontWeight: "700", color: C.successDark },
 
-  // Bottom Bar
+  // ─── Bottom Bar ───
   bottomBar: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: COLORS.white,
-    paddingTop: SPACING.md,
-    paddingBottom: Platform.OS === "ios" ? 34 : SPACING.lg,
-    paddingHorizontal: SPACING.lg,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 20,
+    position: "absolute", bottom: 0, left: 0, right: 0,
+    backgroundColor: C.white,
+    paddingTop: SP.md,
+    paddingBottom: Platform.OS === "ios" ? SP.lg : SP.lg,
+    paddingHorizontal: SP.lg,
+    borderTopWidth: 1, borderTopColor: C.border,
+    shadowColor: C.shadow, shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08, shadowRadius: 12, elevation: 20,
   },
   bottomBarContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING.lg,
+    flexDirection: "row", alignItems: "center", gap: SP.md,
   },
-  pricePreview: {
-    minWidth: 90,
-  },
+  pricePreview: { minWidth: 95 },
   payLabel: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    marginBottom: 2,
+    fontSize: 9, fontWeight: "700", color: C.textLight,
+    letterSpacing: 0.8, marginBottom: 2,
   },
-  payAmount: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: COLORS.primary,
-  },
-  paySubtext: {
-    fontSize: 10,
-    color: COLORS.textMuted,
-  },
+  payAmount: { fontSize: 22, fontWeight: "900", color: C.violet, letterSpacing: -0.5 },
+  paySubtext: { fontSize: 10, color: C.textLight, fontWeight: "600", marginTop: 1 },
+
   actionButtons: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING.sm,
+    flex: 1, flexDirection: "row", alignItems: "center", gap: SP.sm,
   },
   modifyButton: {
-    width: 44,
-    height: 44,
-    borderRadius: RADIUS.md,
-    backgroundColor: COLORS.surface,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: C.primarySoft,
+    justifyContent: "center", alignItems: "center",
+    borderWidth: 1, borderColor: C.violet + "20",
   },
+
+  // ─── GOLD CTA ───
   confirmButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: COLORS.ctaBlack,
-    paddingVertical: SPACING.md + 2,
-    borderRadius: RADIUS.md,
-    gap: SPACING.sm,
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    backgroundColor: C.gold,
+    paddingVertical: SP.md + 2,
+    paddingHorizontal: SP.lg,
+    borderRadius: R.full,
+    gap: SP.sm,
+    shadowColor: C.gold, shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
   },
   confirmButtonDisabled: {
-    opacity: 0.4,
+    backgroundColor: C.borderMid,
+    shadowOpacity: 0,
+    opacity: 0.5,
+  },
+  confirmIconLeft: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: "rgba(0,0,0,0.12)",
+    justifyContent: "center", alignItems: "center",
   },
   confirmButtonText: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.white,
+    fontSize: 15, fontWeight: "800", color: C.textDark, letterSpacing: 0.3,
+  },
+  confirmIconRight: {
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: "rgba(0,0,0,0.12)",
+    justifyContent: "center", alignItems: "center",
   },
 });

@@ -4,7 +4,14 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { getApp } from "@react-native-firebase/app";
 import { getAuth } from "@react-native-firebase/auth";
 import * as Location from "expo-location";
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { LinearGradient } from "expo-linear-gradient";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -32,108 +39,82 @@ import { safeFetchJSON } from "../../utils/safeFetch";
 const { width, height } = Dimensions.get("window");
 
 // ==================== DESIGN SYSTEM ====================
-const COLORS = {
-  primary: "#00A86B",
-  primaryLight: "rgba(0, 168, 107, 0.1)",
-  primaryDark: "#008F5B",
-  textDark: "#111111",
-  textPrimary: "#1F2937",
-  textSecondary: "#6B7280",
-  textMuted: "#9CA3AF",
-  background: "#F5F6F8",
-  ctaBlack: "#111111",
-  white: "#FFFFFF",
-  lightGray: "#E5E7EB",
-  cardBg: "#F9FAFB",
-  divider: "#EEEEEE",
-  red: "#E53935",
-  redLight: "rgba(229, 57, 53, 0.1)",
+const C = {
+  violet: "#3D2B8C",
+  violetDark: "#2A1E6B",
+  violetMid: "#4D3CA0",
+  blue: "#1E40AF",
+  blueDark: "#1E3A8A",
+  blueDeep: "#172554",
+  primarySoft: "#EEEAFB",
+  primarySoftDeep: "#DCD4F5",
+  lavenderBg: "#F1EEFB",
+  primaryFade: "rgba(61,43,140,0.08)",
+  primaryFade2: "rgba(61,43,140,0.15)",
+  primaryGlow: "rgba(61,43,140,0.30)",
+  gold: "#F5C518",
+  goldLight: "#FFD740",
+  goldDark: "#C9A015",
+  goldDeep: "#7A5C00",
+  goldSoft: "#FEF7E0",
+  goldGlow: "rgba(245,197,24,0.35)",
+  bg: "#F7F7FA",
+  card: "#FFFFFF",
+  surface: "#F9FAFB",
+  textDark: "#0F0F1F",
+  textPrimary: "#1F1F33",
+  textMid: "#4A4A66",
+  textLight: "#7B7B95",
+  textFaint: "#A8A8BC",
+  border: "#EDEDF2",
+  borderMid: "#DDDDE5",
+  divider: "#E8E8EE",
+  pastelBlue: "#E3F0FF",
+  blueAccent: "#3B82F6",
+  pastelGreen: "#E8F5E9",
+  green: "#34A853",
+  greenDark: "#16A34A",
+  pastelOrange: "#FFE8D6",
   orange: "#F59E0B",
-  orangeLight: "rgba(245, 158, 11, 0.1)",
-  blue: "#3B82F6",
-  blueLight: "rgba(59, 130, 246, 0.1)",
-  purple: "#8B5CF6",
-  shadow: "#000000",
-  success: "#10B981",
-  successBg: "#ECFDF5",
-  overlay: "rgba(0,0,0,0.5)",
+  pastelRed: "#FEE2E2",
+  red: "#EF4444",
+  success: "#22C55E",
+  successBg: "#E8F8EF",
+  successDark: "#16A34A",
+  warning: "#F59E0B",
+  warningBg: "#FFFBEB",
+  pastelIndigo: "#E0E7FF",
+  indigo: "#6366F1",
+  white: "#FFFFFF",
+  shadow: "#0F0F1F",
+  overlay: "rgba(0,0,0,0.45)",
 };
 
-const SPACING = {
-  xs: 4,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  xxl: 24,
-  xxxl: 32,
+const SP = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32 };
+const R = { sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, full: 999 };
+
+const GRAD = {
+  primary: [C.violet, C.blue],
+  primaryDeep: [C.violetDark, C.blueDeep],
+  primarySoft: [C.violetMid, C.blue],
+  gold: [C.goldLight, C.gold, C.goldDark],
+  goldShine: [C.goldLight, C.gold],
+  lavender: [C.primarySoft, C.lavenderBg],
 };
 
-const RADIUS = {
-  xs: 4,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  xxl: 24,
-  full: 100,
-};
-
-const FONTS = {
-  regular: "400",
-  medium: "500",
-  semibold: "600",
-  bold: "700",
-  extrabold: "800",
-};
-
-const SHADOWS = {
-  small: {
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  medium: {
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  large: {
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-};
-
-// ==================== PLATFORM COMMISSION PRICING ====================
+// ==================== PRICING CONFIG ====================
 const PRICING_CONFIG = {
   nightStartHour: 23,
   nightEndHour: 5,
   nightMultiplier: 1.1,
-
   morningPeakStart: 8,
   morningPeakEnd: 10,
   eveningPeakStart: 17,
   eveningPeakEnd: 20,
   peakMultiplier: 1.1,
-
-  trafficMultipliers: {
-    low: 1.0,
-    moderate: 1.0,
-    heavy: 1.05,
-    severe: 1.1,
-  },
-
+  trafficMultipliers: { low: 1.0, moderate: 1.0, heavy: 1.05, severe: 1.1 },
   perMinuteRate: 1.0,
   minimumFare: 30,
-
-  // ====== PLATFORM COMMISSION ======
   platformCommissionPercent: 20,
   platformFixedFee: 5,
   gstOnCommissionPercent: 18,
@@ -143,7 +124,7 @@ const PRICING_CONFIG = {
 const VEHICLES = [
   {
     id: "book_any",
-    name: "Book Any",
+    name: "Any",
     description: "Fastest available ride",
     time: "3 min",
     image: require("../../assets/icons/sedan.png"),
@@ -152,6 +133,8 @@ const VEHICLES = [
     perMin: 1.0,
     highlighted: true,
     capacity: 4,
+    iconBg: C.primarySoft,
+    iconColor: C.violet,
   },
   {
     id: "auto",
@@ -163,6 +146,8 @@ const VEHICLES = [
     perKm: 8,
     perMin: 0.75,
     capacity: 3,
+    iconBg: C.pastelOrange,
+    iconColor: C.orange,
   },
   {
     id: "mini_nonac",
@@ -174,6 +159,8 @@ const VEHICLES = [
     perKm: 9,
     perMin: 1.0,
     capacity: 4,
+    iconBg: C.pastelBlue,
+    iconColor: C.blueAccent,
   },
   {
     id: "mini",
@@ -185,6 +172,9 @@ const VEHICLES = [
     perKm: 11,
     perMin: 1.25,
     capacity: 4,
+    iconBg: C.pastelGreen,
+    iconColor: C.green,
+    popular: true,
   },
   {
     id: "prime",
@@ -196,6 +186,9 @@ const VEHICLES = [
     perKm: 14,
     perMin: 1.5,
     capacity: 4,
+    iconBg: C.goldSoft,
+    iconColor: C.goldDark,
+    premium: true,
   },
 ];
 
@@ -227,118 +220,146 @@ const DEFAULT_RECENT_LOCATIONS = [
   },
 ];
 
-// ==================== QUICK BOOK VEHICLES ====================
-const QUICK_VEHICLES = [
-  {
-    id: "book_any",
-    name: "Book Any",
-    price: "₹89–₹120",
-    image: require("../../assets/icons/sedan.png"),
-    highlighted: true,
-  },
-  {
-    id: "auto",
-    name: "Auto",
-    price: "₹72",
-    image: require("../../assets/icons/sedan.png"),
-  },
-  {
-    id: "mini_nonac",
-    name: "Mini Non AC",
-    price: "₹82",
-    image: require("../../assets/icons/sedan.png"),
-  },
-];
-
-// ==================== SIDEBAR MENU ITEMS ====================
+// ==================== SIDEBAR MENU ====================
 const SIDEBAR_MENU_ITEMS = [
-  { id: "my_rides", icon: "car-outline", label: "My Rides", route: "MyRides" },
-  { id: "wallet", icon: "wallet-outline", label: "Wallet", route: "Wallet" },
-  { id: "offers", icon: "pricetag-outline", label: "Offers & Promos", route: "Offers" },
-  { id: "refer", icon: "gift-outline", label: "Refer & Earn", route: "Refer" },
-  { id: "settings", icon: "settings-outline", label: "Settings", route: "Settings" },
-  { id: "help", icon: "help-circle-outline", label: "Help & Support", route: "Help" },
-  { id: "about", icon: "information-circle-outline", label: "About", route: "About" },
+  {
+    id: "my_rides",
+    icon: "car-outline",
+    label: "My Rides",
+    route: "MyRides",
+    iconBg: C.primarySoft,
+    iconColor: C.violet,
+  },
+  {
+    id: "wallet",
+    icon: "wallet-outline",
+    label: "Wallet",
+    route: "Wallet",
+    iconBg: C.pastelGreen,
+    iconColor: C.green,
+  },
+  {
+    id: "offers",
+    icon: "pricetag-outline",
+    label: "Offers & Promos",
+    route: "Offers",
+    iconBg: C.goldSoft,
+    iconColor: C.goldDark,
+  },
+  {
+    id: "refer",
+    icon: "gift-outline",
+    label: "Refer & Earn",
+    route: "Refer",
+    iconBg: C.pastelIndigo,
+    iconColor: C.indigo,
+  },
+  {
+    id: "settings",
+    icon: "settings-outline",
+    label: "Settings",
+    route: "Settings",
+    iconBg: C.surface,
+    iconColor: C.textMid,
+  },
+  {
+    id: "help",
+    icon: "help-circle-outline",
+    label: "Help & Support",
+    route: "Help",
+    iconBg: C.pastelBlue,
+    iconColor: C.blueAccent,
+  },
+  {
+    id: "about",
+    icon: "information-circle-outline",
+    label: "About",
+    route: "About",
+    iconBg: C.surface,
+    iconColor: C.textLight,
+  },
 ];
 
 // ==================== MAP STYLE ====================
-const mapStyle = [
-  { featureType: "administrative", elementType: "geometry", stylers: [{ visibility: "off" }] },
-  { featureType: "poi", stylers: [{ visibility: "simplified" }] },
-  { featureType: "poi.business", stylers: [{ visibility: "off" }] },
-  { featureType: "poi.park", elementType: "labels", stylers: [{ visibility: "off" }] },
-  { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
-  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#e8e8e8" }] },
-  { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
-  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
-  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#e0e0e0" }] },
-  { featureType: "road.local", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
+const MAP_STYLE = [
+  { elementType: "geometry", stylers: [{ color: "#F5F5F8" }] },
+  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#7B7B95" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#FFFFFF" }] },
+  { featureType: "poi", stylers: [{ visibility: "off" }] },
+  {
+    featureType: "road",
+    elementType: "geometry",
+    stylers: [{ color: "#FFFFFF" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry",
+    stylers: [{ color: "#E8E2F8" }],
+  },
   { featureType: "transit", stylers: [{ visibility: "off" }] },
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9e4f4" }] },
-  { featureType: "landscape", elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
-  { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#f0f0f0" }] },
+  {
+    featureType: "water",
+    elementType: "geometry",
+    stylers: [{ color: "#D0DCF0" }],
+  },
 ];
 
-// ==================== FARE CALCULATION UTILITIES ====================
-
+// ==================== FARE UTILITIES ====================
 const isNightTime = () => {
-  const hour = new Date().getHours();
-  return hour >= PRICING_CONFIG.nightStartHour || hour < PRICING_CONFIG.nightEndHour;
+  const h = new Date().getHours();
+  return h >= PRICING_CONFIG.nightStartHour || h < PRICING_CONFIG.nightEndHour;
 };
-
 const isPeakHour = () => {
-  const hour = new Date().getHours();
-  const isMorningPeak = hour >= PRICING_CONFIG.morningPeakStart && hour < PRICING_CONFIG.morningPeakEnd;
-  const isEveningPeak = hour >= PRICING_CONFIG.eveningPeakStart && hour < PRICING_CONFIG.eveningPeakEnd;
-  return isMorningPeak || isEveningPeak;
+  const h = new Date().getHours();
+  return (
+    (h >= PRICING_CONFIG.morningPeakStart && h < PRICING_CONFIG.morningPeakEnd) ||
+    (h >= PRICING_CONFIG.eveningPeakStart && h < PRICING_CONFIG.eveningPeakEnd)
+  );
 };
-
 const estimateTrafficLevel = () => {
-  const now = new Date();
-  const hour = now.getHours();
-  const day = now.getDay();
-
-  if (day === 0 || day === 6) {
-    if (hour >= 10 && hour <= 20) return "moderate";
-    return "low";
-  }
-
-  if (hour >= 8 && hour <= 10) return "heavy";
-  if (hour >= 17 && hour <= 20) return "heavy";
-  if (hour >= 12 && hour <= 14) return "moderate";
-  if (hour >= 22 || hour < 6) return "low";
+  const h = new Date().getHours();
+  const d = new Date().getDay();
+  if (d === 0 || d === 6) return h >= 10 && h <= 20 ? "moderate" : "low";
+  if ((h >= 8 && h <= 10) || (h >= 17 && h <= 20)) return "heavy";
+  if (h >= 12 && h <= 14) return "moderate";
+  if (h >= 22 || h < 6) return "low";
   return "moderate";
 };
-
-const getTrafficMultiplier = (trafficLevel) => {
-  return PRICING_CONFIG.trafficMultipliers[trafficLevel] || 1.0;
+const getTrafficColor = (level) => {
+  const map = {
+    low: C.success,
+    moderate: C.orange,
+    heavy: C.red,
+    severe: "#B91C1C",
+  };
+  return map[level] || C.textLight;
 };
 
-/**
- * Calculate complete fare breakdown with platform commission
- */
 const calculateFareBreakdown = (vehicle, distanceKm, durationMinutes) => {
   if (!vehicle || !distanceKm) return null;
-
   const isNight = isNightTime();
   const isPeak = isPeakHour();
   const trafficLevel = estimateTrafficLevel();
-  const trafficMultiplier = getTrafficMultiplier(trafficLevel);
+  const trafficMultiplier =
+    PRICING_CONFIG.trafficMultipliers[trafficLevel] || 1.0;
 
   const baseFare = vehicle.baseFare;
   const distanceFare = distanceKm * vehicle.perKm;
   const timeFare = durationMinutes * (vehicle.perMin || PRICING_CONFIG.perMinuteRate);
-
   let subtotal = baseFare + distanceFare + timeFare;
 
-  const nightCharge = isNight ? Math.round(subtotal * (PRICING_CONFIG.nightMultiplier - 1)) : 0;
-  const peakCharge = isPeak && !isNight ? Math.round(subtotal * (PRICING_CONFIG.peakMultiplier - 1)) : 0;
+  const nightCharge = isNight
+    ? Math.round(subtotal * (PRICING_CONFIG.nightMultiplier - 1))
+    : 0;
+  const peakCharge =
+    isPeak && !isNight
+      ? Math.round(subtotal * (PRICING_CONFIG.peakMultiplier - 1))
+      : 0;
   const trafficSurge = Math.round((trafficMultiplier - 1) * subtotal);
-
   const fareAfterSurge = subtotal + nightCharge + peakCharge + trafficSurge;
   const adjustedFare = Math.max(fareAfterSurge, PRICING_CONFIG.minimumFare);
 
-  // ====== PLATFORM COMMISSION ======
   const platformCommission = Math.round(
     (adjustedFare * PRICING_CONFIG.platformCommissionPercent) / 100
   );
@@ -347,15 +368,10 @@ const calculateFareBreakdown = (vehicle, distanceKm, durationMinutes) => {
   const gstOnCommission = Math.round(
     (totalPlatformEarning * PRICING_CONFIG.gstOnCommissionPercent) / 100
   );
-
-  // ====== DRIVER EARNING ======
   const driverEarning = adjustedFare - totalPlatformEarning;
-
-  // ====== CUSTOMER TOTAL ======
-  const customerTotal = Math.round(adjustedFare + platformFixedFee + gstOnCommission);
-
-  const minFare = Math.round(customerTotal * 0.93);
-  const maxFare = Math.round(customerTotal * 1.08);
+  const customerTotal = Math.round(
+    adjustedFare + platformFixedFee + gstOnCommission
+  );
 
   return {
     baseFare: Math.round(baseFare),
@@ -365,23 +381,15 @@ const calculateFareBreakdown = (vehicle, distanceKm, durationMinutes) => {
     peakCharge,
     trafficSurge,
     subtotal: Math.round(subtotal),
-
-    // Platform earnings
     platformCommission,
     platformFixedFee,
     totalPlatformEarning,
     gstOnCommission,
-
-    // Driver earnings
     driverEarning: Math.round(driverEarning),
-
-    // Customer pays
     customerTotal,
-    minFare,
-    maxFare,
-    priceRange: `₹${minFare}–₹${maxFare}`,
-
-    // Context
+    minFare: Math.round(customerTotal * 0.93),
+    maxFare: Math.round(customerTotal * 1.08),
+    priceRange: `₹${Math.round(customerTotal * 0.93)}–₹${Math.round(customerTotal * 1.08)}`,
     isNight,
     isPeak,
     trafficLevel,
@@ -391,149 +399,123 @@ const calculateFareBreakdown = (vehicle, distanceKm, durationMinutes) => {
   };
 };
 
-const getTrafficColor = (level) => {
-  switch (level) {
-    case "low": return COLORS.success;
-    case "moderate": return COLORS.orange;
-    case "heavy": return COLORS.red;
-    case "severe": return "#B91C1C";
-    default: return COLORS.textSecondary;
-  }
-};
+const formatCurrency = (v) => `₹${Number(v || 0).toLocaleString("en-IN")}`;
 
 // ==================== MAIN COMPONENT ====================
 export default function PickDropScreen({ navigation, route }) {
   const app = getApp();
   const auth = getAuth(app);
   const user = auth.currentUser;
-
   const mapRef = useRef(null);
-  const sidebarAnim = useRef(new Animated.Value(-width * 0.78)).current;
+  const sidebarAnim = useRef(new Animated.Value(-width * 0.8)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(40)).current;
+  const goldPulse = useRef(new Animated.Value(1)).current;
 
-  // Screen state
   const [currentScreen, setCurrentScreen] = useState("home");
-
-  // Sidebar state
   const [sidebarVisible, setSidebarVisible] = useState(false);
-
-  // Location states
   const [pickup, setPickup] = useState(null);
   const [drop, setDrop] = useState(null);
   const [region, setRegion] = useState(null);
   const [routeCoords, setRouteCoords] = useState([]);
   const [distanceText, setDistanceText] = useState(null);
   const [durationText, setDurationText] = useState(null);
-
-  // Selection states
   const [selectedVehicle, setSelectedVehicle] = useState("book_any");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [savedPlaces, setSavedPlaces] = useState([]);
   const [recentSearches, setRecentSearches] = useState(DEFAULT_RECENT_LOCATIONS);
-
-  // Home & Office
   const [homeLocation, setHomeLocation] = useState(null);
   const [officeLocation, setOfficeLocation] = useState(null);
-
-  // UI states
   const [loadingRoute, setLoadingRoute] = useState(false);
   const [showFareDetails, setShowFareDetails] = useState(false);
   const [bookingInProgress, setBookingInProgress] = useState(false);
   const [showCashInfo, setShowCashInfo] = useState(false);
 
-  // Animation refs
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  // ── Entrance animations ──
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-  // ==================== SIDEBAR HANDLERS ====================
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(goldPulse, {
+          toValue: 1.02,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(goldPulse, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  // ── Sidebar ──
   const openSidebar = useCallback(() => {
     setSidebarVisible(true);
     Animated.timing(sidebarAnim, {
       toValue: 0,
-      duration: 250,
+      duration: 280,
       useNativeDriver: true,
     }).start();
   }, [sidebarAnim]);
 
   const closeSidebar = useCallback(() => {
     Animated.timing(sidebarAnim, {
-      toValue: -width * 0.78,
-      duration: 200,
+      toValue: -width * 0.8,
+      duration: 220,
       useNativeDriver: true,
-    }).start(() => {
-      setSidebarVisible(false);
-    });
+    }).start(() => setSidebarVisible(false));
   }, [sidebarAnim]);
 
-  // ==================== FETCH CURRENT LOCATION ====================
+  // ── Location ──
   const fetchCurrentLocation = useCallback(async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        console.log("Location permission denied");
-        return;
-      }
-
+      if (status !== "granted") return;
       const loc = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
-
-      const coord = {
-        lat: loc.coords.latitude,
-        lng: loc.coords.longitude,
-      };
-
-      const addressResponse = await Location.reverseGeocodeAsync({
+      const coord = { lat: loc.coords.latitude, lng: loc.coords.longitude };
+      const rev = await Location.reverseGeocodeAsync({
         latitude: coord.lat,
         longitude: coord.lng,
       });
-
       let fullAddress = "Current Location";
-
-      if (addressResponse.length > 0) {
-        const addr = addressResponse[0];
-        fullAddress = [
-          addr.name,
-          addr.street,
-          addr.district,
-          addr.city,
-          addr.region,
-          addr.postalCode,
-        ]
+      if (rev.length > 0) {
+        const a = rev[0];
+        fullAddress = [a.name, a.street, a.district, a.city, a.region, a.postalCode]
           .filter(Boolean)
           .join(", ");
       }
-
-      setPickup({
-        description: fullAddress,
-        location: coord,
-      });
-
-      const offsetLat = coord.lat + 0.004;
-
-      setRegion({
-        latitude: offsetLat,
+      setPickup({ description: fullAddress, location: coord });
+      const r = {
+        latitude: coord.lat + 0.004,
         longitude: coord.lng,
         latitudeDelta: 0.014,
         longitudeDelta: 0.014,
-      });
-
-      if (mapRef.current) {
-        mapRef.current.animateToRegion({
-          latitude: offsetLat,
-          longitude: coord.lng,
-          latitudeDelta: 0.014,
-          longitudeDelta: 0.014,
-        });
-      }
-    } catch (e) {
-      console.log("Location error:", e);
-      const defaultCoord = { lat: 18.5204, lng: 73.8567 };
-      setPickup({
-        description: "Current Location",
-        location: defaultCoord,
-      });
+      };
+      setRegion(r);
+      mapRef.current?.animateToRegion(r);
+    } catch {
+      const def = { lat: 18.5204, lng: 73.8567 };
+      setPickup({ description: "Current Location", location: def });
       setRegion({
-        latitude: defaultCoord.lat + 0.004,
-        longitude: defaultCoord.lng,
+        latitude: def.lat + 0.004,
+        longitude: def.lng,
         latitudeDelta: 0.014,
         longitudeDelta: 0.014,
       });
@@ -541,37 +523,30 @@ export default function PickDropScreen({ navigation, route }) {
   }, []);
 
   useEffect(() => {
-    try {
-      const prefilledDrop = route?.params?.prefilledDrop;
-      if (prefilledDrop && prefilledDrop.location) {
-        setDrop({
-          description: prefilledDrop.description,
-          location: prefilledDrop.location,
-        });
-        setCurrentScreen("ride_options");
-      }
-    } catch (e) {
-      console.log("No prefilled drop:", e);
-    }
-  }, [route?.params?.prefilledDrop]);
-
-  useEffect(() => {
     fetchCurrentLocation();
   }, [fetchCurrentLocation]);
 
-  // ==================== ROUTE CALCULATION ====================
   useEffect(() => {
-    const calculateRoute = async () => {
+    try {
+      const p = route?.params?.prefilledDrop;
+      if (p?.location) {
+        setDrop({ description: p.description, location: p.location });
+        setCurrentScreen("ride_options");
+      }
+    } catch {}
+  }, [route?.params?.prefilledDrop]);
+
+  // ── Route ──
+  useEffect(() => {
+    const calc = async () => {
       if (!pickup || !drop) return;
       setLoadingRoute(true);
-
       try {
         const r = await getDirections(pickup.location, drop.location);
         if (r) {
           setRouteCoords(r.coords);
           setDistanceText(r.distance);
           setDurationText(r.duration);
-
           setTimeout(() => {
             if (mapRef.current && r.coords.length > 0) {
               mapRef.current.fitToCoordinates(r.coords, {
@@ -586,66 +561,63 @@ export default function PickDropScreen({ navigation, route }) {
             }
           }, 500);
         }
-      } catch (error) {
-        console.log("Route calculation error:", error);
+      } catch (e) {
+        console.log("Route error:", e);
       }
       setLoadingRoute(false);
     };
-
-    calculateRoute();
+    calc();
   }, [pickup, drop]);
 
-  // ==================== LOAD SAVED PLACES ====================
+  // ── Saved places ──
   useEffect(() => {
     if (!user) return;
-
-    const loadSavedPlaces = async () => {
+    const load = async () => {
       const { success, data } = await safeFetchJSON(
         `${API_BASE_URL}/users/${user.uid}/saved-places`
       );
-
       if (success && Array.isArray(data)) {
         setSavedPlaces(data);
         const home = data.find((p) => p.label?.toLowerCase() === "home");
         const office = data.find(
-          (p) => p.label?.toLowerCase() === "office" || p.label?.toLowerCase() === "work"
+          (p) =>
+            p.label?.toLowerCase() === "office" ||
+            p.label?.toLowerCase() === "work"
         );
         if (home) setHomeLocation(home);
         if (office) setOfficeLocation(office);
-      } else {
-        setSavedPlaces([]);
       }
     };
-
-    loadSavedPlaces();
+    load();
   }, [user]);
 
-  // ==================== BACK HANDLER ====================
+  // ── Back handler ──
   useEffect(() => {
-    const backHandler = BackHandler.addEventListener("hardwareBackPress", handleBackPress);
-    return () => backHandler.remove();
+    const sub = BackHandler.addEventListener("hardwareBackPress", handleBackPress);
+    return () => sub.remove();
   }, [currentScreen, sidebarVisible, showFareDetails]);
 
-  // ==================== COMPUTED VALUES ====================
+  // ── Computed ──
   const distanceKm = useMemo(() => {
     if (!distanceText) return 0;
-    const match = distanceText.match(/([\d.]+)/);
-    return match ? parseFloat(match[1]) : 0;
+    const m = distanceText.match(/([\d.]+)/);
+    return m ? parseFloat(m[1]) : 0;
   }, [distanceText]);
 
   const durationMinutes = useMemo(() => {
     if (!durationText) return 0;
-    let minutes = 0;
-    const hourMatch = durationText.match(/(\d+)\s*hr/);
-    const minMatch = durationText.match(/(\d+)\s*min/);
-    if (hourMatch) minutes += parseInt(hourMatch[1]) * 60;
-    if (minMatch) minutes += parseInt(minMatch[1]);
-    return minutes || 15;
+    let mins = 0;
+    const h = durationText.match(/(\d+)\s*hr/);
+    const m = durationText.match(/(\d+)\s*min/);
+    if (h) mins += parseInt(h[1]) * 60;
+    if (m) mins += parseInt(m[1]);
+    return mins || 15;
   }, [durationText]);
 
-  const selectedVehicleData = useMemo(() => {
-    return VEHICLES.find((v) => v.id === selectedVehicle);
-  }, [selectedVehicle]);
+  const selectedVehicleData = useMemo(
+    () => VEHICLES.find((v) => v.id === selectedVehicle),
+    [selectedVehicle]
+  );
 
   const fareBreakdown = useMemo(() => {
     if (!selectedVehicleData || !distanceKm) return null;
@@ -654,23 +626,17 @@ export default function PickDropScreen({ navigation, route }) {
 
   const allVehicleFares = useMemo(() => {
     if (!distanceKm) return {};
-    const fares = {};
-    VEHICLES.forEach((vehicle) => {
-      fares[vehicle.id] = calculateFareBreakdown(vehicle, distanceKm, durationMinutes);
+    const f = {};
+    VEHICLES.forEach((v) => {
+      f[v.id] = calculateFareBreakdown(v, distanceKm, durationMinutes);
     });
-    return fares;
+    return f;
   }, [distanceKm, durationMinutes]);
 
   // ==================== HANDLERS ====================
   const handleBackPress = () => {
-    if (sidebarVisible) {
-      closeSidebar();
-      return true;
-    }
-    if (showFareDetails) {
-      setShowFareDetails(false);
-      return true;
-    }
+    if (sidebarVisible) { closeSidebar(); return true; }
+    if (showFareDetails) { setShowFareDetails(false); return true; }
     if (currentScreen === "ride_options") {
       setCurrentScreen("search");
       setDrop(null);
@@ -679,10 +645,7 @@ export default function PickDropScreen({ navigation, route }) {
       setDurationText(null);
       return true;
     }
-    if (currentScreen === "search") {
-      setCurrentScreen("home");
-      return true;
-    }
+    if (currentScreen === "search") { setCurrentScreen("home"); return true; }
     navigation.goBack();
     return true;
   };
@@ -694,11 +657,9 @@ export default function PickDropScreen({ navigation, route }) {
       subtitle: destination.subtitle || "",
       location: destination.location,
     };
-    setRecentSearches((prev) => {
-      const filtered = prev.filter((r) => r.title !== newRecent.title);
-      return [newRecent, ...filtered].slice(0, 10);
-    });
-
+    setRecentSearches((prev) =>
+      [newRecent, ...prev.filter((r) => r.title !== newRecent.title)].slice(0, 10)
+    );
     setDrop({
       description: destination.description || destination.title,
       location: destination.location,
@@ -706,33 +667,12 @@ export default function PickDropScreen({ navigation, route }) {
     setCurrentScreen("ride_options");
   };
 
-  const handleQuickBook = (locationData) => {
-    setDrop({
-      description: locationData.title,
-      location: locationData.location,
-    });
-    setCurrentScreen("ride_options");
-  };
-
-  const handleRecentLocationPress = (location) => {
-    handleDestinationSelect({
-      description: location.title,
-      subtitle: location.subtitle,
-      location: location.location,
-    });
-  };
-
   const handleSidebarNavigation = (navRoute) => {
     closeSidebar();
-    if (navRoute) {
+    if (navRoute)
       setTimeout(() => {
-        try {
-          navigation.navigate(navRoute);
-        } catch (e) {
-          console.log("Navigation error:", e);
-        }
+        try { navigation.navigate(navRoute); } catch {}
       }, 280);
-    }
   };
 
   const handleSavedPlaceFromSidebar = (place) => {
@@ -745,18 +685,15 @@ export default function PickDropScreen({ navigation, route }) {
     }, 280);
   };
 
-  // ==================== CONFIRM BOOKING (WITH COMMISSION) ====================
+  // ==================== BOOKING ====================
   const confirmBooking = async () => {
     if (!drop || !user || !fareBreakdown) {
-      alert("Please select destination");
+      Alert.alert("Missing Info", "Please select a destination");
       return;
     }
-
     setBookingInProgress(true);
-
     try {
       const finalPaymentMethod = paymentMethod === "upi" ? "online" : paymentMethod;
-
       const res = await fetch(`${API_BASE_URL}/orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -774,8 +711,6 @@ export default function PickDropScreen({ navigation, route }) {
           drop_lng: drop.location.lng,
           pickup: pickup.description,
           drop: drop.description,
-
-          // ====== FULL PRICING BREAKDOWN ======
           pricing: {
             base_fare: fareBreakdown.baseFare,
             distance_fare: fareBreakdown.distanceFare,
@@ -793,19 +728,9 @@ export default function PickDropScreen({ navigation, route }) {
           },
         }),
       });
-
-      if (!res.ok) {
-        const errorData = await res.text();
-        console.error("Create order failed:", errorData);
-        throw new Error("Failed to create order");
-      }
-
+      if (!res.ok) throw new Error("Failed to create order");
       const { id } = await res.json();
-
-      await fetch(`${API_BASE_URL}/orders/${id}/request`, {
-        method: "POST",
-      });
-
+      await fetch(`${API_BASE_URL}/orders/${id}/request`, { method: "POST" });
       navigation.navigate("FindingDriverScreen", {
         orderId: id,
         pickup: pickup.location,
@@ -833,18 +758,22 @@ export default function PickDropScreen({ navigation, route }) {
       });
     } catch (e) {
       console.log("Booking error:", e);
-      alert("Failed to place order. Please try again.");
+      Alert.alert("Error", "Failed to place order. Please try again.");
     } finally {
       setBookingInProgress(false);
     }
   };
 
-  // ==================== SIDEBAR DRAWER ====================
+  // ==================== SIDEBAR ====================
   const renderSidebar = () => {
     if (!sidebarVisible) return null;
-
     return (
-      <Modal visible={sidebarVisible} transparent animationType="none" onRequestClose={closeSidebar}>
+      <Modal
+        visible={sidebarVisible}
+        transparent
+        animationType="none"
+        onRequestClose={closeSidebar}
+      >
         <View style={styles.sidebarOverlay}>
           <TouchableOpacity
             style={StyleSheet.absoluteFill}
@@ -860,12 +789,22 @@ export default function PickDropScreen({ navigation, route }) {
               { transform: [{ translateX: sidebarAnim }] },
             ]}
           >
-            <View style={styles.sidebarProfile}>
+            {/* Profile Header */}
+            <LinearGradient
+              colors={GRAD.primary}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.sidebarProfile}
+            >
+              <View style={styles.sidebarDecor} />
               <View style={styles.sidebarAvatar}>
                 {user?.photoURL ? (
-                  <Image source={{ uri: user.photoURL }} style={styles.sidebarAvatarImg} />
+                  <Image
+                    source={{ uri: user.photoURL }}
+                    style={styles.sidebarAvatarImg}
+                  />
                 ) : (
-                  <Ionicons name="person" size={30} color={COLORS.white} />
+                  <Ionicons name="person" size={28} color={C.white} />
                 )}
               </View>
               <View style={styles.sidebarProfileInfo}>
@@ -880,85 +819,104 @@ export default function PickDropScreen({ navigation, route }) {
                 style={styles.sidebarEditBtn}
                 onPress={() => handleSidebarNavigation("Profile")}
               >
-                <Ionicons name="chevron-forward" size={18} color={COLORS.white} />
+                <Ionicons name="chevron-forward" size={16} color={C.white} />
               </TouchableOpacity>
-            </View>
+            </LinearGradient>
 
-            <ScrollView style={styles.sidebarScroll} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={styles.sidebarScroll}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Saved Places */}
               <View style={styles.sidebarSection}>
                 <Text style={styles.sidebarSectionTitle}>SAVED PLACES</Text>
-
-                <TouchableOpacity
-                  style={styles.sidebarSavedRow}
-                  onPress={() =>
-                    homeLocation
-                      ? handleSavedPlaceFromSidebar(homeLocation)
-                      : handleSidebarNavigation("AddPlace")
-                  }
-                >
-                  <View style={[styles.sidebarSavedIcon, { backgroundColor: COLORS.primaryLight }]}>
-                    <Ionicons name="home" size={18} color={COLORS.primary} />
-                  </View>
-                  <View style={styles.sidebarSavedInfo}>
-                    <Text style={styles.sidebarSavedLabel}>Home</Text>
-                    <Text style={styles.sidebarSavedAddr} numberOfLines={1}>
-                      {homeLocation?.address || "Add home address"}
-                    </Text>
-                  </View>
-                  <Ionicons
-                    name={homeLocation ? "chevron-forward" : "add"}
-                    size={16}
-                    color={COLORS.textSecondary}
-                  />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.sidebarSavedRow}
-                  onPress={() =>
-                    officeLocation
-                      ? handleSavedPlaceFromSidebar(officeLocation)
-                      : handleSidebarNavigation("AddPlace")
-                  }
-                >
-                  <View style={[styles.sidebarSavedIcon, { backgroundColor: COLORS.orangeLight }]}>
-                    <Ionicons name="briefcase" size={18} color={COLORS.orange} />
-                  </View>
-                  <View style={styles.sidebarSavedInfo}>
-                    <Text style={styles.sidebarSavedLabel}>Office</Text>
-                    <Text style={styles.sidebarSavedAddr} numberOfLines={1}>
-                      {officeLocation?.address || "Add office address"}
-                    </Text>
-                  </View>
-                  <Ionicons
-                    name={officeLocation ? "chevron-forward" : "add"}
-                    size={16}
-                    color={COLORS.textSecondary}
-                  />
-                </TouchableOpacity>
+                {[
+                  {
+                    label: "Home",
+                    icon: "home",
+                    loc: homeLocation,
+                    iconBg: C.primarySoft,
+                    iconColor: C.violet,
+                  },
+                  {
+                    label: "Office",
+                    icon: "briefcase",
+                    loc: officeLocation,
+                    iconBg: C.pastelOrange,
+                    iconColor: C.orange,
+                  },
+                ].map((item) => (
+                  <TouchableOpacity
+                    key={item.label}
+                    style={styles.sidebarSavedRow}
+                    onPress={() =>
+                      item.loc
+                        ? handleSavedPlaceFromSidebar(item.loc)
+                        : handleSidebarNavigation("AddPlace")
+                    }
+                  >
+                    <View
+                      style={[
+                        styles.sidebarSavedIcon,
+                        { backgroundColor: item.iconBg },
+                      ]}
+                    >
+                      <Ionicons
+                        name={item.icon}
+                        size={17}
+                        color={item.iconColor}
+                      />
+                    </View>
+                    <View style={styles.sidebarSavedInfo}>
+                      <Text style={styles.sidebarSavedLabel}>{item.label}</Text>
+                      <Text
+                        style={styles.sidebarSavedAddr}
+                        numberOfLines={1}
+                      >
+                        {item.loc?.address || `Add ${item.label.toLowerCase()} address`}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name={item.loc ? "chevron-forward" : "add-circle-outline"}
+                      size={16}
+                      color={C.textLight}
+                    />
+                  </TouchableOpacity>
+                ))}
               </View>
 
+              {/* Recent Searches */}
               {recentSearches.length > 0 && (
                 <View style={styles.sidebarSection}>
-                  <Text style={styles.sidebarSectionTitle}>RECENT SEARCHES</Text>
-                  {recentSearches.slice(0, 5).map((item) => (
+                  <Text style={styles.sidebarSectionTitle}>RECENT</Text>
+                  {recentSearches.slice(0, 4).map((item) => (
                     <TouchableOpacity
                       key={item.id}
                       style={styles.sidebarRecentRow}
                       onPress={() => {
                         closeSidebar();
-                        setTimeout(() => {
-                          handleDestinationSelect({
-                            description: item.title,
-                            subtitle: item.subtitle,
-                            location: item.location,
-                          });
-                        }, 280);
+                        setTimeout(
+                          () =>
+                            handleDestinationSelect({
+                              description: item.title,
+                              subtitle: item.subtitle,
+                              location: item.location,
+                            }),
+                          280
+                        );
                       }}
                     >
                       <View style={styles.sidebarRecentIcon}>
-                        <Ionicons name="time-outline" size={16} color={COLORS.textSecondary} />
+                        <Ionicons
+                          name="time-outline"
+                          size={15}
+                          color={C.textLight}
+                        />
                       </View>
-                      <Text style={styles.sidebarRecentText} numberOfLines={1}>
+                      <Text
+                        style={styles.sidebarRecentText}
+                        numberOfLines={1}
+                      >
                         {item.title}
                       </Text>
                     </TouchableOpacity>
@@ -966,6 +924,7 @@ export default function PickDropScreen({ navigation, route }) {
                 </View>
               )}
 
+              {/* Menu */}
               <View style={styles.sidebarSection}>
                 <Text style={styles.sidebarSectionTitle}>MENU</Text>
                 {SIDEBAR_MENU_ITEMS.map((item) => (
@@ -974,12 +933,29 @@ export default function PickDropScreen({ navigation, route }) {
                     style={styles.sidebarMenuItem}
                     onPress={() => handleSidebarNavigation(item.route)}
                   >
-                    <Ionicons name={item.icon} size={22} color={COLORS.textDark} />
+                    <View
+                      style={[
+                        styles.sidebarMenuIcon,
+                        { backgroundColor: item.iconBg },
+                      ]}
+                    >
+                      <Ionicons
+                        name={item.icon}
+                        size={18}
+                        color={item.iconColor}
+                      />
+                    </View>
                     <Text style={styles.sidebarMenuLabel}>{item.label}</Text>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={14}
+                      color={C.textFaint}
+                    />
                   </TouchableOpacity>
                 ))}
               </View>
 
+              {/* Logout */}
               <TouchableOpacity
                 style={styles.sidebarLogout}
                 onPress={() => {
@@ -987,7 +963,9 @@ export default function PickDropScreen({ navigation, route }) {
                   setTimeout(() => auth.signOut(), 300);
                 }}
               >
-                <Ionicons name="log-out-outline" size={22} color={COLORS.red} />
+                <View style={styles.sidebarLogoutIcon}>
+                  <Ionicons name="log-out-outline" size={18} color={C.red} />
+                </View>
                 <Text style={styles.sidebarLogoutText}>Logout</Text>
               </TouchableOpacity>
 
@@ -999,7 +977,7 @@ export default function PickDropScreen({ navigation, route }) {
     );
   };
 
-  // ==================== FARE DETAILS MODAL (WITH COMMISSION) ====================
+  // ==================== FARE MODAL ====================
   const renderFareDetailsModal = () => {
     if (!fareBreakdown) return null;
 
@@ -1012,244 +990,348 @@ export default function PickDropScreen({ navigation, route }) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.fareModalContainer}>
+            {/* Handle */}
+            <View style={styles.fareModalHandle} />
+
             {/* Header */}
             <View style={styles.fareModalHeader}>
-              <Text style={styles.fareModalTitle}>Fare Breakdown</Text>
+              <View>
+                <Text style={styles.fareModalTitle}>Fare Breakdown</Text>
+                <Text style={styles.fareModalSub}>
+                  {selectedVehicleData?.name} •{" "}
+                  {fareBreakdown.distanceKm} km
+                </Text>
+              </View>
               <TouchableOpacity
-                style={styles.fareModalClose}
+                style={styles.fareModalCloseBtn}
                 onPress={() => setShowFareDetails(false)}
               >
-                <Ionicons name="close" size={22} color={COLORS.textDark} />
+                <Ionicons name="close" size={18} color={C.textDark} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Vehicle Info */}
-              <View style={styles.fareVehicleInfo}>
-                <Image source={selectedVehicleData.image} style={styles.fareVehicleImage} />
-                <View style={styles.fareVehicleDetails}>
-                  <Text style={styles.fareVehicleName}>{selectedVehicleData.name}</Text>
-                  <Text style={styles.fareVehicleDesc}>{selectedVehicleData.description}</Text>
-                </View>
-              </View>
-
-              {/* Trip Info */}
-              <View style={styles.fareTripInfo}>
-                <View style={styles.fareTripItem}>
-                  <Ionicons name="navigate" size={16} color={COLORS.primary} />
-                  <Text style={styles.fareTripText}>{fareBreakdown.distanceKm} km</Text>
-                </View>
-                <View style={styles.fareTripDivider} />
-                <View style={styles.fareTripItem}>
-                  <Ionicons name="time" size={16} color={COLORS.primary} />
-                  <Text style={styles.fareTripText}>{fareBreakdown.durationMinutes} min</Text>
-                </View>
-                <View style={styles.fareTripDivider} />
-                <View style={styles.fareTripItem}>
-                  <Ionicons name="car" size={16} color={getTrafficColor(fareBreakdown.trafficLevel)} />
-                  <Text style={[styles.fareTripText, { color: getTrafficColor(fareBreakdown.trafficLevel) }]}>
-                    {fareBreakdown.trafficLevel.charAt(0).toUpperCase() + fareBreakdown.trafficLevel.slice(1)} Traffic
-                  </Text>
-                </View>
-              </View>
-
-              {/* Time Indicators */}
-              <View style={styles.fareTimeIndicators}>
-                {fareBreakdown.isNight && (
-                  <View style={[styles.fareIndicator, { backgroundColor: COLORS.primaryLight }]}>
-                    <Ionicons name="moon" size={14} color={COLORS.primary} />
-                    <Text style={styles.fareIndicatorText}>Night Fare</Text>
-                  </View>
-                )}
-                {fareBreakdown.isPeak && (
-                  <View style={[styles.fareIndicator, { backgroundColor: COLORS.orangeLight }]}>
-                    <Ionicons name="trending-up" size={14} color={COLORS.orange} />
-                    <Text style={[styles.fareIndicatorText, { color: COLORS.orange }]}>Peak Hour</Text>
-                  </View>
-                )}
-              </View>
-
-              {/* ====== RIDE FARE SECTION ====== */}
-              <View style={styles.fareBreakdownSection}>
-                <Text style={styles.fareBreakdownTitle}>Ride Fare</Text>
-
-                <View style={styles.fareRow}>
-                  <Text style={styles.fareLabel}>Base Fare</Text>
-                  <Text style={styles.fareValue}>₹{fareBreakdown.baseFare}</Text>
-                </View>
-
-                <View style={styles.fareRow}>
-                  <Text style={styles.fareLabel}>
-                    Distance ({fareBreakdown.distanceKm} km × ₹{selectedVehicleData.perKm}/km)
-                  </Text>
-                  <Text style={styles.fareValue}>₹{fareBreakdown.distanceFare}</Text>
-                </View>
-
-                <View style={styles.fareRow}>
-                  <Text style={styles.fareLabel}>
-                    Time ({fareBreakdown.durationMinutes} min × ₹{selectedVehicleData.perMin || PRICING_CONFIG.perMinuteRate}/min)
-                  </Text>
-                  <Text style={styles.fareValue}>₹{fareBreakdown.timeFare}</Text>
-                </View>
-
-                {fareBreakdown.nightCharge > 0 && (
-                  <View style={styles.fareRow}>
-                    <View style={styles.fareLabelRow}>
-                      <Ionicons name="moon-outline" size={14} color={COLORS.textSecondary} />
-                      <Text style={styles.fareLabel}> Night Surcharge</Text>
-                    </View>
-                    <Text style={styles.fareValue}>+₹{fareBreakdown.nightCharge}</Text>
-                  </View>
-                )}
-
-                {fareBreakdown.peakCharge > 0 && (
-                  <View style={styles.fareRow}>
-                    <View style={styles.fareLabelRow}>
-                      <Ionicons name="trending-up-outline" size={14} color={COLORS.textSecondary} />
-                      <Text style={styles.fareLabel}> Peak Hour Charge</Text>
-                    </View>
-                    <Text style={styles.fareValue}>+₹{fareBreakdown.peakCharge}</Text>
-                  </View>
-                )}
-
-                {fareBreakdown.trafficSurge > 0 && (
-                  <View style={styles.fareRow}>
-                    <View style={styles.fareLabelRow}>
-                      <Ionicons name="car-outline" size={14} color={COLORS.textSecondary} />
-                      <Text style={styles.fareLabel}> Traffic Surge</Text>
-                    </View>
-                    <Text style={styles.fareValue}>+₹{fareBreakdown.trafficSurge}</Text>
-                  </View>
-                )}
-              </View>
-
-              {/* ====== FEES & TAXES SECTION ====== */}
-              <View style={styles.fareBreakdownSection}>
-                <Text style={styles.fareBreakdownTitle}>Fees & Taxes</Text>
-
-                <View style={styles.fareRow}>
-                  <View style={styles.fareLabelRow}>
-                    <Ionicons name="business-outline" size={14} color={COLORS.textSecondary} />
-                    <Text style={styles.fareLabel}> Platform Fee</Text>
-                  </View>
-                  <Text style={styles.fareValue}>₹{fareBreakdown.platformFixedFee}</Text>
-                </View>
-
-                <View style={styles.fareRow}>
-                  <View style={styles.fareLabelRow}>
-                    <Ionicons name="receipt-outline" size={14} color={COLORS.textSecondary} />
-                    <Text style={styles.fareLabel}> GST</Text>
-                  </View>
-                  <Text style={styles.fareValue}>₹{fareBreakdown.gstOnCommission}</Text>
-                </View>
-              </View>
-
-              {/* ====== TOTAL ====== */}
-              <View style={styles.fareTotalRow}>
-                <Text style={styles.fareTotalLabel}>You Pay</Text>
-                <Text style={styles.fareTotalValue}>₹{fareBreakdown.customerTotal}</Text>
-              </View>
-
-              {/* ====== PAYMENT METHOD INFO ====== */}
-              <View style={styles.paymentMethodInfo}>
-                <View style={styles.paymentMethodHeader}>
-                  <Ionicons
-                    name={paymentMethod === "cash" ? "cash-outline" : "phone-portrait-outline"}
-                    size={20}
-                    color={paymentMethod === "cash" ? COLORS.orange : COLORS.primary}
-                  />
-                  <Text style={styles.paymentMethodTitle}>
-                    {paymentMethod === "cash" ? "Cash Payment" : "Online Payment"}
-                  </Text>
-                </View>
-
-                {paymentMethod === "cash" ? (
-                  <View>
-                    <View style={styles.paymentDetailRow}>
-                      <Text style={styles.paymentDetailLabel}>Pay to driver (cash)</Text>
-                      <Text style={styles.paymentDetailValue}>₹{fareBreakdown.customerTotal}</Text>
-                    </View>
-                    <View style={styles.paymentInfoBox}>
-                      <Ionicons name="information-circle" size={16} color={COLORS.orange} />
-                      <Text style={styles.paymentInfoText}>
-                        Platform commission (₹{fareBreakdown.totalPlatformEarning}) will be
-                        automatically adjusted from driver's earnings.
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 32 }}
+            >
+              {/* Trip Info Strip */}
+              <LinearGradient
+                colors={GRAD.lavender}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.fareTripStrip}
+              >
+                {[
+                  {
+                    icon: "navigate",
+                    label: `${fareBreakdown.distanceKm} km`,
+                    color: C.violet,
+                  },
+                  {
+                    icon: "time",
+                    label: `${fareBreakdown.durationMinutes} min`,
+                    color: C.violet,
+                  },
+                  {
+                    icon: "car",
+                    label:
+                      fareBreakdown.trafficLevel.charAt(0).toUpperCase() +
+                      fareBreakdown.trafficLevel.slice(1),
+                    color: getTrafficColor(fareBreakdown.trafficLevel),
+                  },
+                ].map((item, i) => (
+                  <React.Fragment key={i}>
+                    {i > 0 && <View style={styles.fareTripStripDivider} />}
+                    <View style={styles.fareTripStripItem}>
+                      <Ionicons name={item.icon} size={14} color={item.color} />
+                      <Text
+                        style={[
+                          styles.fareTripStripText,
+                          { color: item.color },
+                        ]}
+                      >
+                        {item.label}
                       </Text>
                     </View>
-                  </View>
-                ) : (
-                  <View>
-                    <View style={styles.paymentDetailRow}>
-                      <Text style={styles.paymentDetailLabel}>Charged to UPI/Card</Text>
-                      <Text style={styles.paymentDetailValue}>₹{fareBreakdown.customerTotal}</Text>
+                  </React.Fragment>
+                ))}
+              </LinearGradient>
+
+              {/* Surge Badges */}
+              {(fareBreakdown.isNight || fareBreakdown.isPeak) && (
+                <View style={styles.fareSurgeBadges}>
+                  {fareBreakdown.isNight && (
+                    <View
+                      style={[
+                        styles.surgeBadge,
+                        { backgroundColor: C.primarySoft },
+                      ]}
+                    >
+                      <Ionicons name="moon" size={12} color={C.violet} />
+                      <Text style={[styles.surgeBadgeText, { color: C.violet }]}>
+                        Night Fare
+                      </Text>
                     </View>
-                    <View style={styles.paymentDetailRow}>
-                      <Text style={[styles.paymentDetailLabel, { color: COLORS.textMuted }]}>Driver receives</Text>
-                      <Text style={[styles.paymentDetailValue, { color: COLORS.textSecondary }]}>₹{fareBreakdown.driverEarning}</Text>
+                  )}
+                  {fareBreakdown.isPeak && (
+                    <View
+                      style={[
+                        styles.surgeBadge,
+                        { backgroundColor: C.warningBg },
+                      ]}
+                    >
+                      <Ionicons
+                        name="trending-up"
+                        size={12}
+                        color={C.warning}
+                      />
+                      <Text
+                        style={[styles.surgeBadgeText, { color: C.warning }]}
+                      >
+                        Peak Hour
+                      </Text>
                     </View>
-                  </View>
-                )}
+                  )}
+                </View>
+              )}
+
+              {/* Ride Fare Section */}
+              <View style={styles.fareSection}>
+                <Text style={styles.fareSectionTitle}>Ride Fare</Text>
+                {[
+                  { label: "Base Fare", value: fareBreakdown.baseFare },
+                  {
+                    label: `Distance (${fareBreakdown.distanceKm} km × ₹${selectedVehicleData?.perKm}/km)`,
+                    value: fareBreakdown.distanceFare,
+                  },
+                  {
+                    label: `Time (${fareBreakdown.durationMinutes} min × ₹${selectedVehicleData?.perMin || 1}/min)`,
+                    value: fareBreakdown.timeFare,
+                  },
+                  fareBreakdown.nightCharge > 0 && {
+                    label: "Night Surcharge",
+                    value: fareBreakdown.nightCharge,
+                    icon: "moon-outline",
+                    accent: true,
+                    accentColor: C.violet,
+                  },
+                  fareBreakdown.peakCharge > 0 && {
+                    label: "Peak Hour Charge",
+                    value: fareBreakdown.peakCharge,
+                    icon: "trending-up-outline",
+                    accent: true,
+                    accentColor: C.warning,
+                  },
+                  fareBreakdown.trafficSurge > 0 && {
+                    label: "Traffic Surge",
+                    value: fareBreakdown.trafficSurge,
+                    icon: "car-outline",
+                    accent: true,
+                    accentColor: C.orange,
+                  },
+                ]
+                  .filter(Boolean)
+                  .map((row, i) => (
+                    <View key={i} style={styles.fareRow}>
+                      <View style={styles.fareRowLeft}>
+                        {row.icon && (
+                          <Ionicons
+                            name={row.icon}
+                            size={13}
+                            color={row.accentColor || C.textLight}
+                            style={{ marginRight: 4 }}
+                          />
+                        )}
+                        <Text
+                          style={[
+                            styles.fareRowLabel,
+                            row.accent && { color: row.accentColor },
+                          ]}
+                        >
+                          {row.label}
+                        </Text>
+                      </View>
+                      <Text
+                        style={[
+                          styles.fareRowValue,
+                          row.accent && { color: row.accentColor },
+                        ]}
+                      >
+                        ₹{row.value}
+                      </Text>
+                    </View>
+                  ))}
               </View>
 
-              {/* ====== EARNINGS TRANSPARENCY ====== */}
-              <View style={styles.earningsTransparency}>
-                <Text style={styles.earningsTitle}>How fare is distributed</Text>
-
-                <View style={styles.earningsBarContainer}>
-                  <View
-                    style={[
-                      styles.earningsBarSegment,
-                      {
-                        flex: fareBreakdown.driverEarning,
-                        backgroundColor: COLORS.primary,
-                        borderTopLeftRadius: 4,
-                        borderBottomLeftRadius: 4,
-                      },
-                    ]}
-                  />
-                  <View
-                    style={[
-                      styles.earningsBarSegment,
-                      {
-                        flex: fareBreakdown.totalPlatformEarning,
-                        backgroundColor: COLORS.blue,
-                      },
-                    ]}
-                  />
-                  <View
-                    style={[
-                      styles.earningsBarSegment,
-                      {
-                        flex: fareBreakdown.gstOnCommission || 1,
-                        backgroundColor: COLORS.orange,
-                        borderTopRightRadius: 4,
-                        borderBottomRightRadius: 4,
-                      },
-                    ]}
-                  />
+              {/* Fees Section */}
+              <View style={styles.fareSection}>
+                <Text style={styles.fareSectionTitle}>Fees & Taxes</Text>
+                <View style={styles.fareRow}>
+                  <View style={styles.fareRowLeft}>
+                    <Ionicons
+                      name="business-outline"
+                      size={13}
+                      color={C.textLight}
+                      style={{ marginRight: 4 }}
+                    />
+                    <Text style={styles.fareRowLabel}>Platform Fee</Text>
+                  </View>
+                  <Text style={styles.fareRowValue}>
+                    ₹{fareBreakdown.platformFixedFee}
+                  </Text>
                 </View>
+                <View style={styles.fareRow}>
+                  <View style={styles.fareRowLeft}>
+                    <Ionicons
+                      name="receipt-outline"
+                      size={13}
+                      color={C.textLight}
+                      style={{ marginRight: 4 }}
+                    />
+                    <Text style={styles.fareRowLabel}>GST (18%)</Text>
+                  </View>
+                  <Text style={styles.fareRowValue}>
+                    ₹{fareBreakdown.gstOnCommission}
+                  </Text>
+                </View>
+              </View>
 
+              {/* Total */}
+              <View style={styles.fareTotalCard}>
+                <LinearGradient
+                  colors={GRAD.primary}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                />
+                <View style={styles.fareTotalDecor} />
+                <View>
+                  <Text style={styles.fareTotalLabel}>You Pay</Text>
+                  <Text style={styles.fareTotalSub}>Inclusive of all taxes</Text>
+                </View>
+                <View style={styles.fareTotalRight}>
+                  <Text style={styles.fareTotalValue}>
+                    ₹{fareBreakdown.customerTotal}
+                  </Text>
+                  <Text style={styles.fareTotalDecimal}>.00</Text>
+                </View>
+              </View>
+
+              {/* Earnings Transparency */}
+              <View style={styles.earningsCard}>
+                <View style={styles.earningsHeader}>
+                  <View style={styles.earningsIconWrap}>
+                    <Ionicons
+                      name="pie-chart-outline"
+                      size={13}
+                      color={C.violet}
+                    />
+                  </View>
+                  <Text style={styles.earningsTitle}>
+                    How your fare is split
+                  </Text>
+                </View>
+                <View style={styles.earningsBar}>
+                  {[
+                    {
+                      flex: fareBreakdown.driverEarning,
+                      color: C.violet,
+                      rL: 4,
+                      rR: 0,
+                    },
+                    {
+                      flex: fareBreakdown.totalPlatformEarning,
+                      color: C.blueAccent,
+                      rL: 0,
+                      rR: 0,
+                    },
+                    {
+                      flex: fareBreakdown.gstOnCommission || 1,
+                      color: C.orange,
+                      rL: 0,
+                      rR: 4,
+                    },
+                  ].map((s, i) => (
+                    <View
+                      key={i}
+                      style={{
+                        flex: s.flex,
+                        height: 10,
+                        backgroundColor: s.color,
+                        borderTopLeftRadius: s.rL,
+                        borderBottomLeftRadius: s.rL,
+                        borderTopRightRadius: s.rR,
+                        borderBottomRightRadius: s.rR,
+                        marginRight: i < 2 ? 2 : 0,
+                      }}
+                    />
+                  ))}
+                </View>
                 <View style={styles.earningsLegend}>
-                  <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: COLORS.primary }]} />
-                    <Text style={styles.legendText}>Driver: ₹{fareBreakdown.driverEarning}</Text>
-                  </View>
-                  <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: COLORS.blue }]} />
-                    <Text style={styles.legendText}>Platform: ₹{fareBreakdown.totalPlatformEarning}</Text>
-                  </View>
-                  <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: COLORS.orange }]} />
-                    <Text style={styles.legendText}>GST: ₹{fareBreakdown.gstOnCommission}</Text>
-                  </View>
+                  {[
+                    {
+                      color: C.violet,
+                      label: "Driver",
+                      value: fareBreakdown.driverEarning,
+                    },
+                    {
+                      color: C.blueAccent,
+                      label: "Platform",
+                      value: fareBreakdown.totalPlatformEarning,
+                    },
+                    {
+                      color: C.orange,
+                      label: "GST",
+                      value: fareBreakdown.gstOnCommission,
+                    },
+                  ].map((item, i) => (
+                    <View key={i} style={styles.legendItem}>
+                      <View
+                        style={[
+                          styles.legendDot,
+                          { backgroundColor: item.color },
+                        ]}
+                      />
+                      <Text style={styles.legendText}>
+                        {item.label}: ₹{item.value}
+                      </Text>
+                    </View>
+                  ))}
                 </View>
               </View>
 
-              {/* Note */}
-              <View style={styles.fareNote}>
-                <Ionicons name="information-circle" size={16} color={COLORS.textMuted} />
-                <Text style={styles.fareNoteText}>
-                  Final fare may vary based on actual route, waiting time, and traffic. Toll charges, if any, are extra.
+              {/* Payment note */}
+              {paymentMethod === "cash" && (
+                <View style={styles.cashNoteBox}>
+                  <LinearGradient
+                    colors={[C.warningBg, "#FEFCE8"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={StyleSheet.absoluteFill}
+                  />
+                  <Ionicons
+                    name="information-circle"
+                    size={16}
+                    color={C.warning}
+                  />
+                  <Text style={styles.cashNoteText}>
+                    Pay ₹{fareBreakdown.customerTotal} in cash to driver.
+                    Platform fee of ₹{fareBreakdown.totalPlatformEarning} will
+                    be adjusted from driver's earnings.
+                  </Text>
+                </View>
+              )}
+
+              {/* Disclaimer */}
+              <View style={styles.fareDisclaimer}>
+                <Ionicons
+                  name="information-circle-outline"
+                  size={14}
+                  color={C.textFaint}
+                />
+                <Text style={styles.fareDisclaimerText}>
+                  Final fare may vary based on actual route, waiting time &
+                  traffic. Toll charges are extra.
                 </Text>
               </View>
             </ScrollView>
@@ -1259,9 +1341,7 @@ export default function PickDropScreen({ navigation, route }) {
     );
   };
 
-  // ========================================================
-  // SCREEN 1: HOME SCREEN
-  // ========================================================
+  // ==================== SCREEN 1: HOME ====================
   const renderHomeScreen = () => (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
@@ -1273,7 +1353,7 @@ export default function PickDropScreen({ navigation, route }) {
           region={region}
           showsUserLocation={false}
           provider={PROVIDER_GOOGLE}
-          customMapStyle={mapStyle}
+          customMapStyle={MAP_STYLE}
           showsMyLocationButton={false}
           showsCompass={false}
         >
@@ -1284,18 +1364,29 @@ export default function PickDropScreen({ navigation, route }) {
                 longitude: pickup.location.lng,
               }}
             >
-              <View style={styles.currentLocationMarker}>
-                <View style={styles.currentLocationPulse} />
-                <View style={styles.currentLocationDot} />
+              <View style={styles.userMarker}>
+                <View style={styles.userMarkerOuter}>
+                  <LinearGradient
+                    colors={GRAD.primary}
+                    style={styles.userMarkerDot}
+                  >
+                    <View style={styles.userMarkerInner} />
+                  </LinearGradient>
+                </View>
               </View>
             </Marker>
           )}
         </MapView>
       )}
 
+      {/* Top Bar */}
       <View style={styles.homeTopBar}>
-        <TouchableOpacity style={styles.menuButton} activeOpacity={0.8} onPress={openSidebar}>
-          <Ionicons name="menu" size={22} color={COLORS.textDark} />
+        <TouchableOpacity
+          style={styles.headerIconBtn}
+          onPress={openSidebar}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="menu" size={22} color={C.textDark} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -1303,177 +1394,242 @@ export default function PickDropScreen({ navigation, route }) {
           onPress={() => setCurrentScreen("search")}
           activeOpacity={0.95}
         >
-          <View style={styles.searchGreenDot} />
+          <LinearGradient
+            colors={GRAD.primary}
+            style={styles.searchBarDot}
+          />
           <Text style={styles.homeSearchText} numberOfLines={1}>
             {pickup?.description || "Set pickup location"}
           </Text>
+          <View style={styles.searchBarArrow}>
+            <Ionicons name="chevron-forward" size={14} color={C.violet} />
+          </View>
         </TouchableOpacity>
       </View>
 
+      {/* Recenter FAB */}
       <TouchableOpacity
-        style={styles.recenterButton}
+        style={styles.recenterFab}
         onPress={fetchCurrentLocation}
-        activeOpacity={0.8}
+        activeOpacity={0.85}
       >
-        <Ionicons name="locate" size={20} color={COLORS.primary} />
+        <Ionicons name="locate" size={20} color={C.violet} />
       </TouchableOpacity>
 
-      <View style={styles.homeBottomSheet}>
+      {/* Bottom Sheet */}
+      <Animated.View
+        style={[
+          styles.homeBottomSheet,
+          { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+        ]}
+      >
         <View style={styles.sheetHandle} />
 
+        {/* Search Destination */}
         <TouchableOpacity
-          style={styles.searchDestinationBar}
+          style={styles.searchDestBar}
           onPress={() => setCurrentScreen("search")}
           activeOpacity={0.9}
         >
-          <View style={styles.searchIconCircle}>
-            <Ionicons name="search" size={18} color={COLORS.primary} />
+          <View style={styles.searchDestIconWrap}>
+            <Ionicons name="search" size={17} color={C.violet} />
           </View>
-          <Text style={styles.searchDestinationText}>Search Destination</Text>
+          <Text style={styles.searchDestText}>Where to?</Text>
+          <LinearGradient
+            colors={GRAD.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.searchDestBadge}
+          >
+            <Text style={styles.searchDestBadgeText}>GO</Text>
+          </LinearGradient>
         </TouchableOpacity>
 
+        {/* Quick Access */}
         <View style={styles.quickAccessRow}>
-          <TouchableOpacity
-            style={styles.quickAccessItem}
-            activeOpacity={0.8}
-            onPress={() => {
-              if (homeLocation) {
-                handleDestinationSelect({
-                  description: homeLocation.address || "Home",
-                  location: {
-                    lat: homeLocation.lat || homeLocation.location?.lat,
-                    lng: homeLocation.lng || homeLocation.location?.lng,
-                  },
-                });
-              } else {
-                Alert.alert("No Home Address", "Save your home address for quick booking", [
-                  { text: "Cancel", style: "cancel" },
-                  { text: "Add Now", onPress: () => navigation.navigate("SavedPlaces") },
-                ]);
-              }
-            }}
-          >
-            <View style={[styles.quickAccessIcon, { backgroundColor: COLORS.primaryLight }]}>
-              <Ionicons name="home" size={18} color={COLORS.primary} />
-            </View>
-            <Text style={styles.quickAccessLabel} numberOfLines={1}>Home</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.quickAccessItem}
-            activeOpacity={0.8}
-            onPress={() => {
-              if (officeLocation) {
-                handleDestinationSelect({
-                  description: officeLocation.address || "Office",
-                  location: {
-                    lat: officeLocation.lat || officeLocation.location?.lat,
-                    lng: officeLocation.lng || officeLocation.location?.lng,
-                  },
-                });
-              } else {
-                Alert.alert("No Office Address", "Save your office address for quick booking", [
-                  { text: "Cancel", style: "cancel" },
-                  { text: "Add Now", onPress: () => navigation.navigate("SavedPlaces") },
-                ]);
-              }
-            }}
-          >
-            <View style={[styles.quickAccessIcon, { backgroundColor: COLORS.orangeLight }]}>
-              <Ionicons name="briefcase" size={18} color={COLORS.orange} />
-            </View>
-            <Text style={styles.quickAccessLabel} numberOfLines={1}>Office</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.quickRideCard}>
-          <TouchableOpacity
-            style={styles.quickRideHeader}
-            activeOpacity={0.8}
-            onPress={() => handleQuickBook(recentSearches[0])}
-          >
-            <View style={styles.quickRideInfo}>
-              <Text style={styles.quickRideTitle} numberOfLines={1}>
-                {recentSearches[0]?.title || "Recent destination"}
-              </Text>
-              <Text style={styles.quickRideSubtitle}>Instant one click booking</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
-          </TouchableOpacity>
-
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.quickRideVehicles}
-          >
-            {QUICK_VEHICLES.map((vehicle) => (
-              <TouchableOpacity
-                key={vehicle.id}
-                style={[styles.quickVehicleCard, vehicle.highlighted && styles.quickVehicleHighlighted]}
-                onPress={() => {
-                  setSelectedVehicle(vehicle.id);
-                  handleQuickBook(recentSearches[0]);
-                }}
-                activeOpacity={0.85}
+          {[
+            {
+              label: "Home",
+              icon: "home",
+              iconBg: C.primarySoft,
+              iconColor: C.violet,
+              loc: homeLocation,
+              route: "SavedPlaces",
+            },
+            {
+              label: "Office",
+              icon: "briefcase",
+              iconBg: C.pastelOrange,
+              iconColor: C.orange,
+              loc: officeLocation,
+              route: "SavedPlaces",
+            },
+          ].map((item) => (
+            <TouchableOpacity
+              key={item.label}
+              style={styles.quickAccessItem}
+              activeOpacity={0.8}
+              onPress={() => {
+                if (item.loc) {
+                  handleDestinationSelect({
+                    description:
+                      item.loc.address || item.label,
+                    location: {
+                      lat:
+                        item.loc.lat || item.loc.location?.lat,
+                      lng:
+                        item.loc.lng || item.loc.location?.lng,
+                    },
+                  });
+                } else {
+                  Alert.alert(
+                    `No ${item.label} Address`,
+                    `Save your ${item.label.toLowerCase()} address for quick booking`,
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Add Now",
+                        onPress: () =>
+                          navigation.navigate(item.route),
+                      },
+                    ]
+                  );
+                }
+              }}
+            >
+              <View
+                style={[
+                  styles.quickAccessIcon,
+                  { backgroundColor: item.iconBg },
+                ]}
               >
-                <Image source={vehicle.image} style={styles.quickVehicleImage} />
-                <Text style={styles.quickVehicleName}>{vehicle.name}</Text>
-                <Text style={styles.quickVehiclePrice}>{vehicle.price}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+                <Ionicons
+                  name={item.icon}
+                  size={17}
+                  color={item.iconColor}
+                />
+              </View>
+              <Text style={styles.quickAccessLabel} numberOfLines={1}>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        <TouchableOpacity style={styles.promoBanner} activeOpacity={0.95}>
-          <View style={styles.promoContent}>
-            <Text style={styles.promoSmallText}>OLA DRIVERS EARN</Text>
-            <Text style={styles.promoBigText}>100% OF THE FARE</Text>
-          </View>
-          <View style={styles.promoImageContainer}>
-            <Ionicons name="car-sport" size={52} color="rgba(255,255,255,0.95)" />
-            <View style={styles.promoMoneyIcon}>
-              <Ionicons name="cash-outline" size={22} color="rgba(255,255,255,0.85)" />
+        {/* Recent Destinations */}
+        <View style={styles.recentCardHome}>
+          <LinearGradient
+            colors={GRAD.lavender}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.recentCardHeader}
+          >
+            <View style={styles.recentCardHeaderIcon}>
+              <Ionicons name="time-outline" size={13} color={C.violet} />
             </View>
-          </View>
+            <Text style={styles.recentCardHeaderTitle}>Recent</Text>
+          </LinearGradient>
+
+          {recentSearches.slice(0, 2).map((loc, i) => (
+            <TouchableOpacity
+              key={loc.id}
+              style={[
+                styles.recentCardItem,
+                i < 1 && { borderBottomWidth: 1, borderBottomColor: C.border },
+              ]}
+              onPress={() => handleDestinationSelect(loc)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.recentCardItemIcon}>
+                <Ionicons name="time-outline" size={15} color={C.textLight} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.recentCardItemTitle} numberOfLines={1}>
+                  {loc.title}
+                </Text>
+                <Text
+                  style={styles.recentCardItemSubtitle}
+                  numberOfLines={1}
+                >
+                  {loc.subtitle}
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={14}
+                color={C.textFaint}
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Promo Banner */}
+        <TouchableOpacity activeOpacity={0.92}>
+          <LinearGradient
+            colors={GRAD.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.promoBanner}
+          >
+            <View style={styles.promoDecor} />
+            <View style={styles.promoContent}>
+              <Text style={styles.promoSmall}>RIDE WITH CONFIDENCE</Text>
+              <Text style={styles.promoBig}>100% Fare Transparency</Text>
+              <View style={styles.promoPill}>
+                <Ionicons name="shield-checkmark" size={11} color={C.violet} />
+                <Text style={styles.promoPillText}>No hidden charges</Text>
+              </View>
+            </View>
+            <View style={styles.promoIconWrap}>
+              <LinearGradient
+                colors={["rgba(255,255,255,0.25)", "rgba(255,255,255,0.08)"]}
+                style={styles.promoIconCircle}
+              >
+                <Ionicons name="car-sport" size={40} color={C.white} />
+              </LinearGradient>
+            </View>
+          </LinearGradient>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
 
       {renderSidebar()}
     </View>
   );
 
-  // ========================================================
-  // SCREEN 2: DESTINATION SEARCH
-  // ========================================================
+  // ==================== SCREEN 2: SEARCH ====================
   const renderSearchScreen = () => (
     <View style={styles.searchContainer}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
+      <StatusBar barStyle="dark-content" backgroundColor={C.white} />
 
-      <View style={styles.searchTopBar}>
+      {/* Header */}
+      <View style={styles.searchHeader}>
         <TouchableOpacity
-          style={styles.backButton}
+          style={styles.backBtn}
           onPress={() => setCurrentScreen("home")}
-          activeOpacity={0.7}
+          activeOpacity={0.8}
         >
-          <Ionicons name="arrow-back" size={22} color={COLORS.textDark} />
+          <Ionicons name="arrow-back" size={20} color={C.textDark} />
         </TouchableOpacity>
-        <Text style={styles.searchScreenTitle}>Destination</Text>
-        <TouchableOpacity style={styles.profilePill} activeOpacity={0.8}>
-          <Ionicons name="person" size={14} color={COLORS.textDark} />
-          <Text style={styles.profilePillText}>Myself</Text>
-        </TouchableOpacity>
+        <Text style={styles.searchHeaderTitle}>Set Destination</Text>
+        <View style={styles.myselfPill}>
+          <Ionicons name="person" size={12} color={C.violet} />
+          <Text style={styles.myselfText}>Myself</Text>
+        </View>
       </View>
 
+      {/* Location Input Card */}
       <View style={styles.locationCard}>
+        {/* Timeline */}
         <View style={styles.timeline}>
-          <View style={styles.timelineGreenDot} />
+          <LinearGradient colors={GRAD.primary} style={styles.timelineTopDot} />
           <View style={styles.timelineLine} />
-          <View style={styles.timelineRedDot}>
-            <Ionicons name="caret-down" size={8} color={COLORS.white} />
+          <View style={styles.timelineBottomDot}>
+            <Ionicons name="caret-down" size={8} color={C.white} />
           </View>
         </View>
 
         <View style={styles.locationInputs}>
+          {/* Pickup row */}
           <TouchableOpacity style={styles.locationRow} activeOpacity={0.8}>
             <Text style={styles.pickupText} numberOfLines={1}>
               {pickup?.description || "Set pickup location"}
@@ -1482,17 +1638,18 @@ export default function PickDropScreen({ navigation, route }) {
 
           <View style={styles.locationDivider} />
 
+          {/* Destination row */}
           <View style={styles.destinationRow}>
-            <View style={styles.destinationInputWrapper}>
+            <View style={{ flex: 1 }}>
               <AddressSearch
-                placeholder="Enter destination"
+                placeholder="Where to?"
                 onSelect={handleDestinationSelect}
                 inputStyle={styles.destinationInput}
-                placeholderTextColor={COLORS.textSecondary}
+                placeholderTextColor={C.textLight}
               />
             </View>
-            <TouchableOpacity style={styles.addStopButton} activeOpacity={0.7}>
-              <Ionicons name="add" size={20} color={COLORS.textSecondary} />
+            <TouchableOpacity style={styles.addStopBtn} activeOpacity={0.7}>
+              <Ionicons name="add" size={18} color={C.violet} />
             </TouchableOpacity>
           </View>
         </View>
@@ -1504,95 +1661,123 @@ export default function PickDropScreen({ navigation, route }) {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Saved Places */}
         {(homeLocation || officeLocation) && (
           <>
-            <Text style={styles.recentSectionTitle}>SAVED PLACES</Text>
-
-            {homeLocation && (
-              <TouchableOpacity
-                style={styles.recentItem}
-                activeOpacity={0.7}
-                onPress={() =>
-                  handleDestinationSelect({
-                    description: homeLocation.address || "Home",
-                    location: homeLocation.location,
-                  })
-                }
-              >
-                <View style={[styles.savedPlaceIcon, { backgroundColor: COLORS.primaryLight }]}>
-                  <Ionicons name="home" size={18} color={COLORS.primary} />
-                </View>
-                <View style={styles.recentTextWrap}>
-                  <Text style={styles.recentTitle}>Home</Text>
-                  <Text style={styles.recentSubtitle} numberOfLines={1}>{homeLocation.address}</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-
-            {officeLocation && (
-              <TouchableOpacity
-                style={styles.recentItem}
-                activeOpacity={0.7}
-                onPress={() =>
-                  handleDestinationSelect({
-                    description: officeLocation.address || "Office",
-                    location: officeLocation.location,
-                  })
-                }
-              >
-                <View style={[styles.savedPlaceIcon, { backgroundColor: COLORS.orangeLight }]}>
-                  <Ionicons name="briefcase" size={18} color={COLORS.orange} />
-                </View>
-                <View style={styles.recentTextWrap}>
-                  <Text style={styles.recentTitle}>Office</Text>
-                  <Text style={styles.recentSubtitle} numberOfLines={1}>{officeLocation.address}</Text>
-                </View>
-              </TouchableOpacity>
-            )}
+            <Text style={styles.sectionLabel}>SAVED PLACES</Text>
+            {[
+              homeLocation && {
+                label: "Home",
+                icon: "home",
+                iconBg: C.primarySoft,
+                iconColor: C.violet,
+                addr: homeLocation.address,
+                loc: homeLocation.location,
+              },
+              officeLocation && {
+                label: "Office",
+                icon: "briefcase",
+                iconBg: C.pastelOrange,
+                iconColor: C.orange,
+                addr: officeLocation.address,
+                loc: officeLocation.location,
+              },
+            ]
+              .filter(Boolean)
+              .map((item) => (
+                <TouchableOpacity
+                  key={item.label}
+                  style={styles.recentItem}
+                  activeOpacity={0.75}
+                  onPress={() =>
+                    handleDestinationSelect({
+                      description: item.addr || item.label,
+                      location: item.loc,
+                    })
+                  }
+                >
+                  <View
+                    style={[
+                      styles.recentItemIcon,
+                      { backgroundColor: item.iconBg },
+                    ]}
+                  >
+                    <Ionicons name={item.icon} size={17} color={item.iconColor} />
+                  </View>
+                  <View style={styles.recentItemText}>
+                    <Text style={styles.recentItemTitle}>{item.label}</Text>
+                    <Text style={styles.recentItemSubtitle} numberOfLines={1}>
+                      {item.addr}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={14}
+                    color={C.textFaint}
+                  />
+                </TouchableOpacity>
+              ))}
           </>
         )}
 
-        <Text style={[styles.recentSectionTitle, (homeLocation || officeLocation) && { marginTop: SPACING.xxl }]}>
+        {/* Recent */}
+        <Text
+          style={[
+            styles.sectionLabel,
+            (homeLocation || officeLocation) && { marginTop: SP.xxl },
+          ]}
+        >
           RECENT
         </Text>
-
-        {recentSearches.map((location) => (
+        {recentSearches.map((loc) => (
           <TouchableOpacity
-            key={location.id}
+            key={loc.id}
             style={styles.recentItem}
-            activeOpacity={0.7}
-            onPress={() => handleRecentLocationPress(location)}
+            activeOpacity={0.75}
+            onPress={() =>
+              handleDestinationSelect({
+                description: loc.title,
+                subtitle: loc.subtitle,
+                location: loc.location,
+              })
+            }
           >
-            <View style={styles.recentIcon}>
-              <Ionicons name="time-outline" size={18} color={COLORS.textSecondary} />
+            <View style={styles.recentItemIconGray}>
+              <Ionicons name="time-outline" size={17} color={C.textLight} />
             </View>
-            <View style={styles.recentTextWrap}>
-              <Text style={styles.recentTitle} numberOfLines={1}>{location.title}</Text>
-              <Text style={styles.recentSubtitle} numberOfLines={1}>{location.subtitle}</Text>
+            <View style={styles.recentItemText}>
+              <Text style={styles.recentItemTitle} numberOfLines={1}>
+                {loc.title}
+              </Text>
+              <Text style={styles.recentItemSubtitle} numberOfLines={1}>
+                {loc.subtitle}
+              </Text>
             </View>
+            <Ionicons name="chevron-forward" size={14} color={C.textFaint} />
           </TouchableOpacity>
         ))}
 
-        {savedPlaces.filter(
-          (p) =>
-            p.label?.toLowerCase() !== "home" &&
-            p.label?.toLowerCase() !== "office" &&
-            p.label?.toLowerCase() !== "work"
-        ).length > 0 && (
+        {/* Other saved places */}
+        {savedPlaces
+          .filter(
+            (p) =>
+              !["home", "office", "work"].includes(p.label?.toLowerCase())
+          )
+          .length > 0 && (
           <>
-            <Text style={[styles.recentSectionTitle, { marginTop: SPACING.xxl }]}>SAVED PLACES</Text>
+            <Text style={[styles.sectionLabel, { marginTop: SP.xxl }]}>
+              MORE PLACES
+            </Text>
             {savedPlaces
               .filter(
                 (p) =>
-                  p.label?.toLowerCase() !== "home" &&
-                  p.label?.toLowerCase() !== "office" &&
-                  p.label?.toLowerCase() !== "work"
+                  !["home", "office", "work"].includes(p.label?.toLowerCase())
               )
               .map((item) => (
                 <TouchableOpacity
                   key={item.id || item._id}
                   style={styles.recentItem}
-                  activeOpacity={0.7}
+                  activeOpacity={0.75}
                   onPress={() =>
                     handleDestinationSelect({
                       description: item.address,
@@ -1600,339 +1785,519 @@ export default function PickDropScreen({ navigation, route }) {
                     })
                   }
                 >
-                  <View style={[styles.savedPlaceIcon, { backgroundColor: (item.color || COLORS.primary) + "20" }]}>
-                    <Ionicons name={item.icon || "location"} size={18} color={item.color || COLORS.primary} />
+                  <View
+                    style={[
+                      styles.recentItemIcon,
+                      {
+                        backgroundColor:
+                          (item.color || C.violet) + "18",
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name={item.icon || "location"}
+                      size={17}
+                      color={item.color || C.violet}
+                    />
                   </View>
-                  <View style={styles.recentTextWrap}>
-                    <Text style={styles.recentTitle}>{item.label}</Text>
-                    <Text style={styles.recentSubtitle} numberOfLines={1}>{item.address}</Text>
+                  <View style={styles.recentItemText}>
+                    <Text style={styles.recentItemTitle}>{item.label}</Text>
+                    <Text
+                      style={styles.recentItemSubtitle}
+                      numberOfLines={1}
+                    >
+                      {item.address}
+                    </Text>
                   </View>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={14}
+                    color={C.textFaint}
+                  />
                 </TouchableOpacity>
               ))}
           </>
         )}
       </ScrollView>
 
-      <View style={styles.locateMapButtonContainer}>
-        <TouchableOpacity style={styles.locateMapButton} activeOpacity={0.9}>
-          <Ionicons name="location" size={18} color={COLORS.primary} />
+      {/* Locate on Map */}
+      <View style={styles.locateMapBar}>
+        <TouchableOpacity style={styles.locateMapBtn} activeOpacity={0.9}>
+          <LinearGradient
+            colors={GRAD.primary}
+            style={styles.locateMapIconWrap}
+          >
+            <Ionicons name="location" size={16} color={C.white} />
+          </LinearGradient>
           <Text style={styles.locateMapText}>Locate on Map</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 
-  // ========================================================
-  // SCREEN 3: RIDE OPTIONS (WITH COMMISSION UI)
-  // ========================================================
+  // ==================== SCREEN 3: RIDE OPTIONS ====================
   const renderRideOptionsScreen = () => (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
+      {/* Map */}
       {region && (
         <MapView
           ref={mapRef}
-          style={styles.rideMap}
+          style={StyleSheet.absoluteFillObject}
           region={region}
           showsUserLocation={false}
           provider={PROVIDER_GOOGLE}
-          customMapStyle={mapStyle}
+          customMapStyle={MAP_STYLE}
           showsMyLocationButton={false}
           showsCompass={false}
           showsTraffic={true}
         >
           {pickup && (
             <Marker
-              coordinate={{ latitude: pickup.location.lat, longitude: pickup.location.lng }}
+              coordinate={{
+                latitude: pickup.location.lat,
+                longitude: pickup.location.lng,
+              }}
               anchor={{ x: 0.5, y: 0.5 }}
             >
-              <View style={styles.pickupMarker}>
-                <View style={styles.pickupMarkerInner} />
+              <View style={styles.userMarker}>
+                <View style={styles.userMarkerOuter}>
+                  <LinearGradient
+                    colors={GRAD.primary}
+                    style={styles.userMarkerDot}
+                  >
+                    <View style={styles.userMarkerInner} />
+                  </LinearGradient>
+                </View>
               </View>
             </Marker>
           )}
-
           {drop && (
             <Marker
-              coordinate={{ latitude: drop.location.lat, longitude: drop.location.lng }}
+              coordinate={{
+                latitude: drop.location.lat,
+                longitude: drop.location.lng,
+              }}
               anchor={{ x: 0.5, y: 1 }}
             >
-              <View style={styles.dropMarkerContainer}>
-                <Ionicons name="location-sharp" size={36} color={COLORS.red} />
+              <View style={styles.dropMarker}>
+                <LinearGradient
+                  colors={[C.red, "#C0392B"]}
+                  style={styles.dropMarkerInner}
+                >
+                  <Ionicons name="location" size={16} color={C.white} />
+                </LinearGradient>
+                <View style={styles.dropMarkerTail} />
               </View>
             </Marker>
           )}
-
           {routeCoords.length > 0 && (
-            <Polyline coordinates={routeCoords} strokeColor={COLORS.primary} strokeWidth={4} />
+            <Polyline
+              coordinates={routeCoords}
+              strokeColor={C.violet}
+              strokeWidth={5}
+              lineCap="round"
+              lineJoin="round"
+            />
           )}
         </MapView>
       )}
 
+      {/* Back + Expand */}
       <TouchableOpacity
-        style={styles.mapBackButton}
+        style={styles.mapBackBtn}
         onPress={() => setCurrentScreen("search")}
         activeOpacity={0.85}
       >
-        <Ionicons name="arrow-back" size={22} color={COLORS.textDark} />
+        <Ionicons name="arrow-back" size={20} color={C.textDark} />
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.expandBtn} activeOpacity={0.85}>
+        <Ionicons name="expand-outline" size={17} color={C.textDark} />
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.expandButton} activeOpacity={0.85}>
-        <Ionicons name="expand-outline" size={18} color={COLORS.textDark} />
-      </TouchableOpacity>
-
-      <View style={styles.summaryCard}>
-        <View style={styles.summaryTimeline}>
-          <View style={styles.summaryGreenDot} />
-          <View style={styles.summaryLine} />
-          <View style={styles.summaryRedDot} />
+      {/* Route Summary Card */}
+      <View style={styles.routeSummaryCard}>
+        <View style={styles.routeTimeline}>
+          <LinearGradient
+            colors={GRAD.primary}
+            style={styles.routeTimelineTop}
+          />
+          <View style={styles.routeTimelineLine} />
+          <View style={styles.routeTimelineBottom} />
         </View>
-
-        <View style={styles.summaryLocations}>
-          <Text style={styles.summaryPickupText} numberOfLines={1}>
+        <View style={styles.routeLocations}>
+          <Text style={styles.routePickupText} numberOfLines={1}>
             {pickup?.description || "Pickup"}
           </Text>
-          <Text style={styles.summaryDropText} numberOfLines={1}>
+          <Text style={styles.routeDropText} numberOfLines={1}>
             {drop?.description || "Drop"}
           </Text>
         </View>
-
         <TouchableOpacity style={styles.nowPill} activeOpacity={0.8}>
           <Text style={styles.nowPillText}>Now</Text>
-          <Ionicons name="chevron-down" size={14} color={COLORS.textDark} />
+          <Ionicons name="chevron-down" size={12} color={C.textDark} />
         </TouchableOpacity>
       </View>
+
+      {/* Distance / Duration badge */}
+      {distanceText && durationText && (
+        <View style={styles.distanceBadge}>
+          <LinearGradient
+            colors={[C.primarySoft, C.lavenderBg]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <Ionicons name="navigate" size={11} color={C.violet} />
+          <Text style={styles.distanceBadgeText}>
+            {distanceText} • {durationText}
+          </Text>
+        </View>
+      )}
 
       {/* Ride Panel */}
       <View style={styles.ridePanel}>
         <View style={styles.panelHandle} />
 
-        {/* Trip Info Bar */}
-        {/* {fareBreakdown && (
-          <View style={styles.tripInfoBar}>
-            <View style={styles.tripInfoItem}>
-              <Ionicons name="navigate" size={14} color={COLORS.primary} />
-              <Text style={styles.tripInfoText}>{fareBreakdown.distanceKm} km</Text>
-            </View>
-            <View style={styles.tripInfoDivider} />
-            <View style={styles.tripInfoItem}>
-              <Ionicons name="time" size={14} color={COLORS.primary} />
-              <Text style={styles.tripInfoText}>{fareBreakdown.durationMinutes} min</Text>
-            </View>
-            <View style={styles.tripInfoDivider} />
-            <View style={styles.tripInfoItem}>
-              <Ionicons name="car" size={14} color={getTrafficColor(fareBreakdown.trafficLevel)} />
-              <Text style={[styles.tripInfoText, { color: getTrafficColor(fareBreakdown.trafficLevel) }]}>
-                {fareBreakdown.trafficLevel.charAt(0).toUpperCase() + fareBreakdown.trafficLevel.slice(1)}
-              </Text>
-            </View>
-            {(fareBreakdown.isNight || fareBreakdown.isPeak) && (
-              <>
-                <View style={styles.tripInfoDivider} />
-                <View style={styles.tripInfoItem}>
-                  <Ionicons
-                    name={fareBreakdown.isNight ? "moon" : "trending-up"}
-                    size={14}
-                    color={fareBreakdown.isNight ? COLORS.primary : COLORS.orange}
-                  />
-                  <Text
-                    style={[
-                      styles.tripInfoText,
-                      { color: fareBreakdown.isNight ? COLORS.primary : COLORS.orange },
-                    ]}
-                  >
-                    {fareBreakdown.isNight ? "Night" : "Peak"}
-                  </Text>
-                </View>
-              </>
-            )}
+        {/* Peak/Night indicator */}
+        {fareBreakdown && (fareBreakdown.isNight || fareBreakdown.isPeak) && (
+          <View style={styles.surgeStripPanel}>
+            <Ionicons
+              name={fareBreakdown.isNight ? "moon" : "trending-up"}
+              size={12}
+              color={fareBreakdown.isNight ? C.violet : C.warning}
+            />
+            <Text
+              style={[
+                styles.surgeStripText,
+                { color: fareBreakdown.isNight ? C.violet : C.warning },
+              ]}
+            >
+              {fareBreakdown.isNight ? "Night fare active" : "Peak hour pricing"}
+            </Text>
           </View>
-        )} */}
+        )}
 
-        {/* Ride List */}
+        {/* Vehicle List */}
         <FlatList
           data={VEHICLES}
           keyExtractor={(item) => item.id}
-          style={styles.rideList}
+          style={styles.vehicleList}
           showsVerticalScrollIndicator={false}
           bounces={false}
-          ItemSeparatorComponent={() => <View style={styles.rideSeparator} />}
           renderItem={({ item }) => {
             const isSelected = selectedVehicle === item.id;
-            const vehicleFare = allVehicleFares[item.id];
+            const vFare = allVehicleFares[item.id];
 
             return (
               <TouchableOpacity
                 style={[
-                  styles.rideRow,
-                  isSelected && styles.rideRowSelected,
-                  item.highlighted && !isSelected && styles.rideRowHighlighted,
+                  styles.vehicleRow,
+                  isSelected && styles.vehicleRowSelected,
                 ]}
                 onPress={() => setSelectedVehicle(item.id)}
                 activeOpacity={0.85}
               >
-                <View style={styles.rideLeft}>
-                  <Image source={item.image} style={styles.rideImage} />
-                  <Text style={styles.rideEta}>{item.time}</Text>
+                {/* Popular / Premium tag */}
+                {item.popular && (
+                  <LinearGradient
+                    colors={GRAD.primary}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.vehicleTag}
+                  >
+                    <Text style={styles.vehicleTagText}>POPULAR</Text>
+                  </LinearGradient>
+                )}
+                {item.premium && (
+                  <LinearGradient
+                    colors={GRAD.gold}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.vehicleTag}
+                  >
+                    <Ionicons name="diamond" size={8} color={C.white} />
+                    <Text style={[styles.vehicleTagText, { marginLeft: 2 }]}>
+                      PREMIUM
+                    </Text>
+                  </LinearGradient>
+                )}
+
+                {/* Icon */}
+                <View
+                  style={[
+                    styles.vehicleIconWrap,
+                    {
+                      backgroundColor: isSelected
+                        ? C.white
+                        : item.iconBg,
+                    },
+                  ]}
+                >
+                  <Image source={item.image} style={styles.vehicleImage} />
+                  <Text style={styles.vehicleEta}>{item.time}</Text>
                 </View>
 
-                <View style={styles.rideCenter}>
-                  <Text style={[styles.rideName, isSelected && styles.rideNameSelected]}>{item.name}</Text>
-                  <Text style={styles.rideDescription} numberOfLines={1}>{item.description}</Text>
+                {/* Info */}
+                <View style={styles.vehicleInfo}>
+                  <Text
+                    style={[
+                      styles.vehicleName,
+                      isSelected && { color: C.violet },
+                    ]}
+                  >
+                    {item.name}
+                  </Text>
+                  <Text style={styles.vehicleDesc} numberOfLines={1}>
+                    {item.description}
+                  </Text>
+                  <View style={styles.vehicleCapRow}>
+                    <Ionicons
+                      name="people-outline"
+                      size={11}
+                      color={C.textFaint}
+                    />
+                    <Text style={styles.vehicleCapText}>
+                      {item.capacity} seats
+                    </Text>
+                  </View>
                 </View>
 
-                <View style={styles.rideRight}>
-                  {vehicleFare ? (
+                {/* Price + Radio */}
+                <View style={styles.vehicleRight}>
+                  {vFare ? (
                     <>
-                      {item.id === "book_any" ? (
-                        <Text style={[styles.ridePrice, isSelected && styles.ridePriceSelected]}>
-                          {vehicleFare.priceRange}
-                        </Text>
-                      ) : (
-                        <Text style={[styles.ridePrice, isSelected && styles.ridePriceSelected]}>
-                          ₹{vehicleFare.customerTotal}
-                        </Text>
-                      )}
-                      {(vehicleFare.nightCharge > 0 || vehicleFare.peakCharge > 0 || vehicleFare.trafficSurge > 0) && (
-                        <View style={styles.surgeIndicator}>
-                          <Ionicons name="trending-up" size={10} color={COLORS.orange} />
+                      <Text
+                        style={[
+                          styles.vehiclePrice,
+                          isSelected && { color: C.violet },
+                        ]}
+                      >
+                        {item.id === "book_any"
+                          ? vFare.priceRange
+                          : `₹${vFare.customerTotal}`}
+                      </Text>
+                      {(vFare.nightCharge > 0 ||
+                        vFare.peakCharge > 0 ||
+                        vFare.trafficSurge > 0) && (
+                        <View style={styles.surgeChip}>
+                          <Ionicons
+                            name="trending-up"
+                            size={9}
+                            color={C.warning}
+                          />
                         </View>
                       )}
                     </>
                   ) : (
-                    <Text style={styles.ridePrice}>--</Text>
+                    <Text style={styles.vehiclePrice}>--</Text>
+                  )}
+                  {isSelected ? (
+                    <LinearGradient
+                      colors={GRAD.primary}
+                      style={styles.radioSelected}
+                    >
+                      <Ionicons
+                        name="checkmark"
+                        size={11}
+                        color={C.white}
+                      />
+                    </LinearGradient>
+                  ) : (
+                    <View style={styles.radio} />
                   )}
                 </View>
               </TouchableOpacity>
             );
           }}
+          ItemSeparatorComponent={() => (
+            <View style={styles.vehicleSeparator} />
+          )}
         />
 
-        {/* Fare Details Button */}
+        {/* Fare Details link */}
         {fareBreakdown && (
           <TouchableOpacity
-            style={styles.fareDetailsBtn}
+            style={styles.fareDetailsRow}
             onPress={() => setShowFareDetails(true)}
             activeOpacity={0.8}
           >
-            <Ionicons name="receipt-outline" size={16} color={COLORS.primary} />
-            <Text style={styles.fareDetailsBtnText}>View Fare Breakdown</Text>
-            <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
+            <LinearGradient
+              colors={GRAD.lavender}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <View style={styles.fareDetailsIconWrap}>
+              <Ionicons name="receipt-outline" size={13} color={C.violet} />
+            </View>
+            <Text style={styles.fareDetailsText}>View Fare Breakdown</Text>
+            <Ionicons name="chevron-forward" size={14} color={C.violet} />
           </TouchableOpacity>
         )}
 
-        {/* ====== PAYMENT BAR (WITH COMMISSION AWARENESS) ====== */}
+        {/* Payment Bar */}
         <View style={styles.paymentBar}>
-          <TouchableOpacity
-            style={[styles.paymentOption, paymentMethod === "cash" && styles.paymentOptionCash]}
-            onPress={() => {
-              setPaymentMethod("cash");
-              setShowCashInfo(true);
-              setTimeout(() => setShowCashInfo(false), 4000);
-            }}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="cash-outline"
-              size={16}
-              color={paymentMethod === "cash" ? COLORS.orange : COLORS.textDark}
-            />
-            <Text style={[styles.paymentOptionText, paymentMethod === "cash" && styles.paymentOptionTextCash]}>
-              Cash
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.paymentOption, paymentMethod === "upi" && styles.paymentOptionActive]}
-            onPress={() => {
-              setPaymentMethod("upi");
-              setShowCashInfo(false);
-            }}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="phone-portrait-outline"
-              size={16}
-              color={paymentMethod === "upi" ? COLORS.primary : COLORS.textDark}
-            />
-            <Text style={[styles.paymentOptionText, paymentMethod === "upi" && styles.paymentOptionTextActive]}>
-              UPI
-            </Text>
-            <View style={styles.recommendedBadge}>
-              <Text style={styles.recommendedText}>RECOMMENDED</Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.paymentOption} activeOpacity={0.8}>
-            <Ionicons name="pricetag-outline" size={16} color={COLORS.textDark} />
-            <Text style={styles.paymentOptionText}>Coupon</Text>
-          </TouchableOpacity>
+          {[
+            {
+              id: "cash",
+              icon: "cash-outline",
+              label: "Cash",
+              activeColor: C.warning,
+              activeBg: C.warningBg,
+            },
+            {
+              id: "upi",
+              icon: "phone-portrait-outline",
+              label: "UPI",
+              activeColor: C.violet,
+              activeBg: C.primarySoft,
+              badge: "Preferred",
+            },
+            {
+              id: "coupon",
+              icon: "pricetag-outline",
+              label: "Coupon",
+              activeColor: C.violet,
+              activeBg: C.primarySoft,
+            },
+          ].map((pm) => {
+            const isActive = paymentMethod === pm.id;
+            return (
+              <TouchableOpacity
+                key={pm.id}
+                style={[
+                  styles.paymentOption,
+                  isActive && {
+                    backgroundColor: pm.activeBg,
+                    borderColor: pm.activeColor + "40",
+                  },
+                ]}
+                onPress={() => {
+                  if (pm.id !== "coupon") {
+                    setPaymentMethod(pm.id);
+                    if (pm.id === "cash") {
+                      setShowCashInfo(true);
+                      setTimeout(() => setShowCashInfo(false), 4000);
+                    } else {
+                      setShowCashInfo(false);
+                    }
+                  }
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={pm.icon}
+                  size={15}
+                  color={isActive ? pm.activeColor : C.textLight}
+                />
+                <Text
+                  style={[
+                    styles.paymentOptionText,
+                    isActive && { color: pm.activeColor, fontWeight: "700" },
+                  ]}
+                >
+                  {pm.label}
+                </Text>
+                {pm.badge && (
+                  <LinearGradient
+                    colors={GRAD.primary}
+                    style={styles.recBadge}
+                  >
+                    <Text style={styles.recBadgeText}>{pm.badge}</Text>
+                  </LinearGradient>
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
-        {/* Cash Info Banner */}
+        {/* Info Banners */}
         {paymentMethod === "cash" && showCashInfo && fareBreakdown && (
-          <View style={styles.cashInfoBanner}>
-            <Ionicons name="information-circle" size={18} color={COLORS.orange} />
-            <Text style={styles.cashInfoText}>
-              Pay ₹{fareBreakdown.customerTotal} in cash to driver. Platform fee of ₹{fareBreakdown.totalPlatformEarning} will be adjusted from driver's account.
+          <View style={styles.infoBanner}>
+            <LinearGradient
+              colors={[C.warningBg, "#FEFCE8"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <Ionicons name="information-circle" size={16} color={C.warning} />
+            <Text style={styles.infoBannerText}>
+              Pay ₹{fareBreakdown.customerTotal} in cash to driver. Platform
+              fee of ₹{fareBreakdown.totalPlatformEarning} will be adjusted.
             </Text>
             <TouchableOpacity onPress={() => setShowCashInfo(false)}>
-              <Ionicons name="close" size={16} color={COLORS.textSecondary} />
+              <Ionicons name="close" size={14} color={C.textLight} />
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Online Payment Benefit Banner */}
         {paymentMethod === "upi" && (
-          <View style={styles.onlineBenefitBanner}>
-            <Ionicons name="shield-checkmark" size={16} color={COLORS.primary} />
-            <Text style={styles.onlineBenefitText}>
+          <View style={styles.infoBanner}>
+            <LinearGradient
+              colors={GRAD.lavender}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <Ionicons
+              name="shield-checkmark"
+              size={15}
+              color={C.violet}
+            />
+            <Text style={[styles.infoBannerText, { color: C.violet }]}>
               Secure payment • No change hassle • Instant receipt
             </Text>
           </View>
         )}
 
-        {/* ====== BOOK BUTTON (WITH PAYMENT CONTEXT) ====== */}
-        <TouchableOpacity
-          style={[styles.bookButton, bookingInProgress && styles.bookButtonDisabled]}
-          onPress={confirmBooking}
-          activeOpacity={0.9}
-          disabled={bookingInProgress}
+        {/* Book Button */}
+        <Animated.View
+          style={{ transform: [{ scale: goldPulse }], paddingHorizontal: SP.lg, marginTop: SP.sm }}
         >
-          {bookingInProgress ? (
-            <ActivityIndicator color={COLORS.white} />
-          ) : (
-            <View style={styles.bookButtonContent}>
-              <Text style={styles.bookButtonText}>
-                Book {selectedVehicleData?.name || "Ride"}
-                {fareBreakdown && ` • ₹${fareBreakdown.customerTotal}`}
-              </Text>
-              <View style={styles.bookButtonPaymentBadge}>
-                <Ionicons
-                  name={paymentMethod === "cash" ? "cash-outline" : "phone-portrait-outline"}
-                  size={12}
-                  color={COLORS.white}
-                />
-                <Text style={styles.bookButtonPaymentText}>
-                  {paymentMethod === "cash" ? "Pay Cash" : "Pay Online"}
-                </Text>
-              </View>
-            </View>
-          )}
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.bookButton,
+              bookingInProgress && styles.bookButtonDisabled,
+            ]}
+            onPress={confirmBooking}
+            activeOpacity={0.9}
+            disabled={bookingInProgress}
+          >
+            {bookingInProgress ? (
+              <ActivityIndicator color={C.textDark} />
+            ) : (
+              <>
+                <View style={styles.bookButtonLeft}>
+                  <Text style={styles.bookButtonText}>
+                    Book {selectedVehicleData?.name}
+                  </Text>
+                  {fareBreakdown && (
+                    <Text style={styles.bookButtonPrice}>
+                      ₹{fareBreakdown.customerTotal}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.bookButtonIconWrap}>
+                  <Ionicons name="arrow-forward" size={16} color={C.textDark} />
+                </View>
+              </>
+            )}
+          </TouchableOpacity>
+        </Animated.View>
       </View>
 
       {/* Loading Overlay */}
       {loadingRoute && (
         <View style={styles.loadingOverlay}>
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color={C.violet} />
             <Text style={styles.loadingText}>Calculating fare...</Text>
           </View>
         </View>
       )}
 
-      {/* Fare Details Modal */}
       {renderFareDetailsModal()}
     </View>
   );
@@ -1949,63 +2314,408 @@ export default function PickDropScreen({ navigation, route }) {
 
 // ==================== STYLES ====================
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
+  container: { flex: 1, backgroundColor: C.bg },
+
+  // ─── User Marker ───
+  userMarker: { alignItems: "center", justifyContent: "center" },
+  userMarkerOuter: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: C.violet + "15",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: C.violet + "30",
+  },
+  userMarkerDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 3,
+    borderColor: C.white,
+  },
+  userMarkerInner: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: C.white,
   },
 
-  // ========== SIDEBAR STYLES ==========
-  sidebarOverlay: {
-    flex: 1,
+  // ─── Drop Marker ───
+  dropMarker: { alignItems: "center" },
+  dropMarkerInner: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: C.white,
+    shadowColor: C.red,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 5,
   },
-  sidebarBackdrop: {
-    flex: 1,
-    backgroundColor: COLORS.overlay,
+  dropMarkerTail: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderTopWidth: 7,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    borderTopColor: "#C0392B",
+    marginTop: -2,
   },
+
+  // ─── HOME SCREEN ───
+  homeTopBar: {
+    position: "absolute",
+    top: Platform.OS === "ios" ? 54 : 22,
+    left: SP.lg,
+    right: SP.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  headerIconBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: C.white,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: C.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  homeSearchBar: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.white,
+    marginLeft: SP.md,
+    paddingHorizontal: SP.lg,
+    paddingVertical: 13,
+    borderRadius: R.full,
+    shadowColor: C.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  searchBarDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: SP.md,
+  },
+  homeSearchText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+    color: C.textDark,
+    letterSpacing: -0.2,
+  },
+  searchBarArrow: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: C.primarySoft,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  recenterFab: {
+    position: "absolute",
+    bottom: "44%",
+    right: SP.lg,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: C.white,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: C.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
+    zIndex: 10,
+  },
+  homeBottomSheet: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: C.white,
+    borderTopLeftRadius: R.xxl,
+    borderTopRightRadius: R.xxl,
+    paddingTop: SP.md,
+    paddingBottom: Platform.OS === "ios" ? 34 : 24,
+    paddingHorizontal: SP.lg,
+    shadowColor: C.violet,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 20,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: C.borderMid,
+    alignSelf: "center",
+    marginBottom: SP.lg,
+  },
+  searchDestBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.surface,
+    paddingHorizontal: SP.md,
+    paddingVertical: SP.sm,
+    borderRadius: R.lg,
+    marginBottom: SP.md,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  searchDestIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: C.primarySoft,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: SP.md,
+  },
+  searchDestText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "600",
+    color: C.textLight,
+    letterSpacing: -0.2,
+  },
+  searchDestBadge: {
+    paddingHorizontal: SP.md,
+    paddingVertical: 6,
+    borderRadius: R.full,
+  },
+  searchDestBadgeText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: C.white,
+    letterSpacing: 0.5,
+  },
+  quickAccessRow: {
+    flexDirection: "row",
+    marginBottom: SP.md,
+    gap: SP.sm,
+  },
+  quickAccessItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.surface,
+    paddingHorizontal: SP.md,
+    paddingVertical: SP.sm,
+    borderRadius: R.full,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  quickAccessIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  quickAccessLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: C.textDark,
+    marginLeft: SP.sm,
+    marginRight: SP.xs,
+  },
+  recentCardHome: {
+    backgroundColor: C.white,
+    borderRadius: R.lg,
+    borderWidth: 1,
+    borderColor: C.border,
+    marginBottom: SP.lg,
+    overflow: "hidden",
+    shadowColor: C.violet,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  recentCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: SP.lg,
+    paddingVertical: SP.md,
+    gap: SP.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+  },
+  recentCardHeaderIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: C.white,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  recentCardHeaderTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: C.violet,
+  },
+  recentCardItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: SP.lg,
+    paddingVertical: SP.md,
+  },
+  recentCardItemIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: C.surface,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: SP.md,
+  },
+  recentCardItemTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: C.textDark,
+    marginBottom: 2,
+  },
+  recentCardItemSubtitle: {
+    fontSize: 11,
+    color: C.textLight,
+    fontWeight: "500",
+  },
+  promoBanner: {
+    borderRadius: R.lg,
+    paddingVertical: SP.xl,
+    paddingHorizontal: SP.xl,
+    flexDirection: "row",
+    alignItems: "center",
+    overflow: "hidden",
+    position: "relative",
+  },
+  promoDecor: {
+    position: "absolute",
+    top: -30,
+    right: -30,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  promoContent: { flex: 1 },
+  promoSmall: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.8)",
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  promoBig: {
+    fontSize: 17,
+    fontWeight: "900",
+    color: C.white,
+    letterSpacing: -0.3,
+    marginBottom: SP.sm,
+  },
+  promoPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.gold,
+    alignSelf: "flex-start",
+    paddingHorizontal: SP.sm,
+    paddingVertical: 4,
+    borderRadius: R.full,
+    gap: 4,
+  },
+  promoPillText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: C.textDark,
+  },
+  promoIconWrap: { marginLeft: SP.lg },
+  promoIconCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  // ─── SIDEBAR ───
+  sidebarOverlay: { flex: 1 },
+  sidebarBackdrop: { flex: 1, backgroundColor: C.overlay },
   sidebarContainer: {
     position: "absolute",
     left: 0,
     top: 0,
     bottom: 0,
-    width: width * 0.78,
-    backgroundColor: COLORS.white,
-    ...SHADOWS.large,
+    width: width * 0.8,
+    backgroundColor: C.white,
+    shadowColor: C.shadow,
+    shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 20,
   },
   sidebarProfile: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.primary,
     paddingTop: Platform.OS === "ios" ? 58 : 38,
-    paddingBottom: SPACING.xl,
-    paddingHorizontal: SPACING.lg,
+    paddingBottom: SP.xl,
+    paddingHorizontal: SP.lg,
+    position: "relative",
+    overflow: "hidden",
+  },
+  sidebarDecor: {
+    position: "absolute",
+    top: -40,
+    right: -40,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: "rgba(255,255,255,0.06)",
   },
   sidebarAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "rgba(255,255,255,0.25)",
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "rgba(255,255,255,0.2)",
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.3)",
   },
-  sidebarAvatarImg: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-  },
-  sidebarProfileInfo: {
-    flex: 1,
-    marginLeft: SPACING.md,
-  },
+  sidebarAvatarImg: { width: 50, height: 50, borderRadius: 25 },
+  sidebarProfileInfo: { flex: 1, marginLeft: SP.md },
   sidebarProfileName: {
-    fontSize: 17,
-    fontWeight: FONTS.bold,
-    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: "800",
+    color: C.white,
+    letterSpacing: -0.2,
   },
   sidebarProfilePhone: {
     fontSize: 12,
-    color: "rgba(255,255,255,0.8)",
+    color: "rgba(255,255,255,0.75)",
     marginTop: 2,
+    fontWeight: "500",
   },
   sidebarEditBtn: {
     width: 30,
@@ -2015,27 +2725,25 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  sidebarScroll: {
-    flex: 1,
-  },
+  sidebarScroll: { flex: 1 },
   sidebarSection: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
-    paddingBottom: SPACING.sm,
+    paddingHorizontal: SP.lg,
+    paddingTop: SP.lg,
+    paddingBottom: SP.sm,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
+    borderBottomColor: C.border,
   },
   sidebarSectionTitle: {
-    fontSize: 11,
-    fontWeight: FONTS.semibold,
-    color: COLORS.textSecondary,
-    letterSpacing: 0.8,
-    marginBottom: SPACING.md,
+    fontSize: 10,
+    fontWeight: "700",
+    color: C.textFaint,
+    letterSpacing: 1.2,
+    marginBottom: SP.md,
   },
   sidebarSavedRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: SPACING.md,
+    paddingVertical: SP.md,
   },
   sidebarSavedIcon: {
     width: 38,
@@ -2044,1191 +2752,975 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  sidebarSavedInfo: {
-    flex: 1,
-    marginLeft: SPACING.md,
-  },
+  sidebarSavedInfo: { flex: 1, marginHorizontal: SP.md },
   sidebarSavedLabel: {
     fontSize: 14,
-    fontWeight: FONTS.semibold,
-    color: COLORS.textDark,
+    fontWeight: "700",
+    color: C.textDark,
   },
   sidebarSavedAddr: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: C.textLight,
     marginTop: 2,
+    fontWeight: "500",
   },
   sidebarRecentRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: SPACING.sm,
+    paddingVertical: SP.sm,
   },
   sidebarRecentIcon: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: COLORS.cardBg,
+    backgroundColor: C.surface,
     justifyContent: "center",
     alignItems: "center",
   },
   sidebarRecentText: {
     flex: 1,
     fontSize: 13,
-    color: COLORS.textDark,
-    marginLeft: SPACING.md,
+    color: C.textDark,
+    marginLeft: SP.md,
+    fontWeight: "500",
   },
   sidebarMenuItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 14,
+    paddingVertical: SP.md,
+  },
+  sidebarMenuIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: "center",
+    alignItems: "center",
   },
   sidebarMenuLabel: {
-    fontSize: 15,
-    fontWeight: FONTS.medium,
-    color: COLORS.textDark,
-    marginLeft: SPACING.lg,
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+    color: C.textDark,
+    marginLeft: SP.md,
   },
   sidebarLogout: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: SPACING.lg,
-    paddingHorizontal: SPACING.lg,
+    paddingVertical: SP.lg,
+    paddingHorizontal: SP.lg,
     borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
-    marginTop: SPACING.md,
+    borderTopColor: C.border,
+    marginTop: SP.md,
   },
-  sidebarLogoutText: {
-    fontSize: 15,
-    fontWeight: FONTS.medium,
-    color: COLORS.red,
-    marginLeft: SPACING.lg,
-  },
-
-  // ========== HOME SCREEN ==========
-  currentLocationMarker: {
-    alignItems: "center",
-    justifyContent: "center",
-    width: 50,
-    height: 50,
-  },
-  currentLocationPulse: {
-    position: "absolute",
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.primaryLight,
-  },
-  currentLocationDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: COLORS.primary,
-    borderWidth: 3,
-    borderColor: COLORS.white,
-    ...SHADOWS.medium,
-  },
-  homeTopBar: {
-    position: "absolute",
-    top: Platform.OS === "ios" ? 54 : 20,
-    left: SPACING.lg,
-    right: SPACING.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    zIndex: 10,
-  },
-  menuButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: COLORS.white,
-    justifyContent: "center",
-    alignItems: "center",
-    ...SHADOWS.medium,
-  },
-  homeSearchBar: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.white,
-    marginHorizontal: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: 14,
-    borderRadius: RADIUS.xxl,
-    ...SHADOWS.medium,
-  },
-  searchGreenDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: COLORS.primary,
-    marginRight: SPACING.md,
-  },
-  homeSearchText: {
-    flex: 1,
-    fontSize: 14,
-    color: COLORS.textDark,
-    fontWeight: FONTS.medium,
-  },
-  recenterButton: {
-    position: "absolute",
-    bottom: height * 0.42,
-    right: SPACING.lg,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.white,
-    justifyContent: "center",
-    alignItems: "center",
-    ...SHADOWS.medium,
-    zIndex: 10,
-  },
-  homeBottomSheet: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: RADIUS.xxl,
-    borderTopRightRadius: RADIUS.xxl,
-    paddingTop: SPACING.md,
-    paddingBottom: Platform.OS === "ios" ? 34 : 24,
-    ...SHADOWS.large,
-  },
-  sheetHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: COLORS.lightGray,
-    alignSelf: "center",
-    marginBottom: SPACING.lg,
-  },
-  searchDestinationBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.cardBg,
-    marginHorizontal: SPACING.lg,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: RADIUS.lg,
-    marginBottom: SPACING.md,
-  },
-  searchIconCircle: {
+  sidebarLogoutIcon: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: COLORS.white,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: SPACING.md,
-    ...SHADOWS.small,
-  },
-  searchDestinationText: {
-    fontSize: 15,
-    color: COLORS.textSecondary,
-    fontWeight: FONTS.medium,
-  },
-  quickAccessRow: {
-    flexDirection: "row",
-    paddingHorizontal: SPACING.lg,
-    marginBottom: SPACING.md,
-  },
-  quickAccessItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.cardBg,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.full,
-    marginRight: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.lightGray,
-  },
-  quickAccessIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    backgroundColor: C.pastelRed,
     justifyContent: "center",
     alignItems: "center",
   },
-  quickAccessLabel: {
-    fontSize: 13,
-    fontWeight: FONTS.medium,
-    color: COLORS.textDark,
-    marginLeft: SPACING.sm,
-    marginRight: SPACING.xs,
-  },
-  quickRideCard: {
-    backgroundColor: COLORS.cardBg,
-    marginHorizontal: SPACING.lg,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.lg,
-    marginBottom: SPACING.lg,
-  },
-  quickRideHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 14,
-  },
-  quickRideInfo: {
-    flex: 1,
-  },
-  quickRideTitle: {
+  sidebarLogoutText: {
     fontSize: 14,
-    fontWeight: FONTS.semibold,
-    color: COLORS.textDark,
-  },
-  quickRideSubtitle: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  quickRideVehicles: {
-    paddingRight: SPACING.sm,
-  },
-  quickVehicleCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    marginRight: 10,
-    alignItems: "center",
-    width: 92,
-    borderWidth: 1.5,
-    borderColor: COLORS.lightGray,
-  },
-  quickVehicleHighlighted: {
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.primaryLight,
-  },
-  quickVehicleImage: {
-    width: 52,
-    height: 30,
-    resizeMode: "contain",
-    marginBottom: 6,
-  },
-  quickVehicleName: {
-    fontSize: 11,
-    fontWeight: FONTS.semibold,
-    color: COLORS.textDark,
-    textAlign: "center",
-  },
-  quickVehiclePrice: {
-    fontSize: 10,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  promoBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: COLORS.primary,
-    marginHorizontal: SPACING.lg,
-    borderRadius: RADIUS.lg,
-    paddingVertical: SPACING.xl,
-    paddingHorizontal: SPACING.xl,
-    overflow: "hidden",
-  },
-  promoContent: {
-    flex: 1,
-  },
-  promoSmallText: {
-    fontSize: 11,
-    fontWeight: FONTS.semibold,
-    color: "rgba(255,255,255,0.9)",
-    letterSpacing: 0.8,
-  },
-  promoBigText: {
-    fontSize: 20,
-    fontWeight: FONTS.extrabold,
-    color: COLORS.white,
-    marginTop: 4,
-  },
-  promoImageContainer: {
-    position: "relative",
-    marginLeft: SPACING.lg,
-  },
-  promoMoneyIcon: {
-    position: "absolute",
-    top: -10,
-    right: -10,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    borderRadius: 12,
-    padding: 4,
+    fontWeight: "700",
+    color: C.red,
+    marginLeft: SP.md,
   },
 
-  // ========== SEARCH SCREEN ==========
-  searchContainer: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-  },
-  searchTopBar: {
+  // ─── SEARCH SCREEN ───
+  searchContainer: { flex: 1, backgroundColor: C.white },
+  searchHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: Platform.OS === "ios" ? 54 : 10,
-    paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.sm,
-    backgroundColor: COLORS.white,
+    paddingTop: Platform.OS === "ios" ? 54 : 14,
+    paddingBottom: SP.md,
+    paddingHorizontal: SP.lg,
+    backgroundColor: C.white,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
+    borderBottomColor: C.border,
   },
-  backButton: {
-    width: 40,
-    height: 40,
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: C.surface,
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: -SPACING.sm,
   },
-  searchScreenTitle: {
+  searchHeaderTitle: {
     flex: 1,
-    fontSize: 17,
-    fontWeight: FONTS.semibold,
-    color: COLORS.textDark,
+    fontSize: 16,
+    fontWeight: "800",
+    color: C.textDark,
     textAlign: "center",
-    marginRight: 40,
+    letterSpacing: -0.3,
   },
-  profilePill: {
+  myselfPill: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.cardBg,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.full,
-    borderWidth: 1,
-    borderColor: COLORS.lightGray,
+    backgroundColor: C.primarySoft,
+    paddingHorizontal: SP.md,
+    paddingVertical: 6,
+    borderRadius: R.full,
+    gap: 4,
   },
-  profilePillText: {
+  myselfText: {
     fontSize: 12,
-    color: COLORS.textDark,
-    marginLeft: 6,
-    fontWeight: FONTS.medium,
+    fontWeight: "700",
+    color: C.violet,
   },
   locationCard: {
     flexDirection: "row",
-    backgroundColor: COLORS.white,
-    marginHorizontal: SPACING.lg,
-    marginTop: SPACING.lg,
-    marginBottom: SPACING.sm,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.md,
-    ...SHADOWS.small,
+    backgroundColor: C.white,
+    marginHorizontal: SP.lg,
+    marginTop: SP.lg,
+    marginBottom: SP.sm,
+    borderRadius: R.lg,
+    padding: SP.md,
+    borderWidth: 1,
+    borderColor: C.border,
+    shadowColor: C.violet,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   timeline: {
     alignItems: "center",
-    marginRight: 14,
-    paddingTop: SPACING.sm,
-    paddingBottom: SPACING.sm,
+    marginRight: SP.md,
+    paddingTop: SP.sm,
+    paddingBottom: SP.sm,
   },
-  timelineGreenDot: {
+  timelineTopDot: {
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: COLORS.primary,
   },
   timelineLine: {
     width: 2,
     flex: 1,
-    backgroundColor: COLORS.lightGray,
-    marginVertical: SPACING.xs,
-    minHeight: 24,
+    backgroundColor: C.border,
+    marginVertical: SP.xs,
+    minHeight: 22,
   },
-  timelineRedDot: {
+  timelineBottomDot: {
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: COLORS.red,
+    backgroundColor: C.red,
     justifyContent: "center",
     alignItems: "center",
   },
-  locationInputs: {
-    flex: 1,
-  },
+  locationInputs: { flex: 1 },
   locationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 14,
+    paddingVertical: 13,
   },
   pickupText: {
-    flex: 1,
     fontSize: 14,
-    color: COLORS.textDark,
-    fontWeight: FONTS.medium,
+    fontWeight: "600",
+    color: C.textDark,
   },
   locationDivider: {
     height: 1,
-    backgroundColor: COLORS.lightGray,
-    marginLeft: -14,
-    marginRight: -SPACING.lg,
+    backgroundColor: C.border,
+    marginLeft: -SP.md,
+    marginRight: -SP.lg,
   },
   destinationRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 10,
   },
-  destinationInputWrapper: {
-    flex: 1,
-  },
   destinationInput: {
     fontSize: 14,
-    color: COLORS.textDark,
-    fontWeight: FONTS.medium,
-    paddingVertical: SPACING.xs,
+    fontWeight: "600",
+    color: C.textDark,
+    paddingVertical: SP.xs,
   },
-  addStopButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: COLORS.cardBg,
+  addStopBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: C.primarySoft,
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: SPACING.md,
+    marginLeft: SP.md,
   },
-  recentList: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-  },
+  recentList: { flex: 1, backgroundColor: C.white },
   recentListContent: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.xxl,
+    paddingHorizontal: SP.lg,
+    paddingTop: SP.xl,
     paddingBottom: 120,
   },
-  recentSectionTitle: {
-    fontSize: 11,
-    fontWeight: FONTS.semibold,
-    color: COLORS.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginBottom: SPACING.sm,
+  sectionLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: C.textFaint,
+    letterSpacing: 1.2,
+    marginBottom: SP.sm,
   },
   recentItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 14,
+    paddingVertical: SP.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
+    borderBottomColor: C.border,
   },
-  recentIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.cardBg,
+  recentItemIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 14,
+    marginRight: SP.md,
   },
-  savedPlaceIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  recentItemIconGray: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: C.surface,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 14,
+    marginRight: SP.md,
   },
-  recentTextWrap: {
-    flex: 1,
-  },
-  recentTitle: {
+  recentItemText: { flex: 1 },
+  recentItemTitle: {
     fontSize: 14,
-    fontWeight: FONTS.semibold,
-    color: COLORS.textDark,
+    fontWeight: "700",
+    color: C.textDark,
     marginBottom: 3,
   },
-  recentSubtitle: {
+  recentItemSubtitle: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: C.textLight,
+    fontWeight: "500",
   },
-  locateMapButtonContainer: {
+  locateMapBar: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: COLORS.white,
-    paddingBottom: Platform.OS === "ios" ? 34 : 2,
+    backgroundColor: C.white,
     borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
+    borderTopColor: C.border,
+    paddingBottom: Platform.OS === "ios" ? 34 : 8,
   },
-  locateMapButton: {
+  locateMapBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: SPACING.md,
+    paddingVertical: SP.md,
+    gap: SP.md,
   },
-  locateMapText: {
-    fontSize: 15,
-    fontWeight: FONTS.semibold,
-    color: COLORS.primary,
-    marginLeft: SPACING.sm,
-  },
-
-  // ========== RIDE OPTIONS SCREEN ==========
-  rideMap: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  mapBackButton: {
-    position: "absolute",
-    top: Platform.OS === "ios" ? 54 : 20,
-    left: SPACING.lg,
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: COLORS.white,
+  locateMapIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     justifyContent: "center",
     alignItems: "center",
-    ...SHADOWS.medium,
   },
-  expandButton: {
+  locateMapText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: C.violet,
+  },
+
+  // ─── RIDE OPTIONS SCREEN ───
+  mapBackBtn: {
     position: "absolute",
     top: Platform.OS === "ios" ? 54 : 20,
-    right: SPACING.lg,
+    left: SP.lg,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: C.white,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: C.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
+    zIndex: 10,
+  },
+  expandBtn: {
+    position: "absolute",
+    top: Platform.OS === "ios" ? 54 : 20,
+    right: SP.lg,
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: COLORS.white,
+    backgroundColor: C.white,
     justifyContent: "center",
     alignItems: "center",
-    ...SHADOWS.medium,
-  },
-  pickupMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: COLORS.primaryLight,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  pickupMarkerInner: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: COLORS.primary,
-    borderWidth: 2.5,
-    borderColor: COLORS.white,
-  },
-  dropMarkerContainer: {
-    alignItems: "center",
-  },
-  summaryCard: {
-    position: "absolute",
-    top: height * 0.28,
-    left: SPACING.lg,
-    right: SPACING.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.lg,
-    paddingVertical: 14,
-    paddingHorizontal: SPACING.lg,
-    ...SHADOWS.large,
+    shadowColor: C.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
     zIndex: 10,
   },
-  summaryTimeline: {
+  routeSummaryCard: {
+    position: "absolute",
+    top: "28%",
+    left: SP.lg,
+    right: SP.lg,
+    flexDirection: "row",
     alignItems: "center",
-    marginRight: SPACING.md,
+    backgroundColor: C.white,
+    borderRadius: R.lg,
+    paddingVertical: SP.md,
+    paddingHorizontal: SP.lg,
+    shadowColor: C.violet,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
+    zIndex: 10,
+    borderWidth: 1,
+    borderColor: C.border,
   },
-  summaryGreenDot: {
+  routeTimeline: {
+    alignItems: "center",
+    marginRight: SP.md,
+  },
+  routeTimelineTop: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: COLORS.primary,
   },
-  summaryLine: {
+  routeTimelineLine: {
     width: 2,
-    height: 20,
-    backgroundColor: COLORS.lightGray,
+    height: 18,
+    backgroundColor: C.border,
     marginVertical: 3,
   },
-  summaryRedDot: {
+  routeTimelineBottom: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: COLORS.red,
+    backgroundColor: C.red,
   },
-  summaryLocations: {
-    flex: 1,
-  },
-  summaryPickupText: {
+  routeLocations: { flex: 1 },
+  routePickupText: {
     fontSize: 13,
-    fontWeight: FONTS.medium,
-    color: COLORS.textDark,
-    marginBottom: SPACING.sm,
+    fontWeight: "600",
+    color: C.textDark,
+    marginBottom: SP.sm,
   },
-  summaryDropText: {
+  routeDropText: {
     fontSize: 13,
-    fontWeight: FONTS.medium,
-    color: COLORS.textDark,
+    fontWeight: "600",
+    color: C.textDark,
   },
   nowPill: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.cardBg,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: RADIUS.sm,
+    backgroundColor: C.surface,
+    paddingHorizontal: SP.sm,
+    paddingVertical: 5,
+    borderRadius: R.sm,
     borderWidth: 1,
-    borderColor: COLORS.lightGray,
-    marginLeft: SPACING.sm,
+    borderColor: C.border,
+    marginLeft: SP.sm,
+    gap: 3,
   },
   nowPillText: {
     fontSize: 12,
-    fontWeight: FONTS.medium,
-    color: COLORS.textDark,
-    marginRight: SPACING.xs,
+    fontWeight: "600",
+    color: C.textDark,
+  },
+  distanceBadge: {
+    position: "absolute",
+    bottom: "43%",
+    left: SP.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SP.xs,
+    borderRadius: R.full,
+    paddingHorizontal: SP.md,
+    paddingVertical: 6,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: C.violet + "20",
+    zIndex: 10,
+  },
+  distanceBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: C.violet,
   },
   ridePanel: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: RADIUS.xxl,
-    borderTopRightRadius: RADIUS.xxl,
-    paddingTop: SPACING.md,
-    paddingBottom: Platform.OS === "ios" ? 34 : 24,
+    backgroundColor: C.white,
+    borderTopLeftRadius: R.xxl,
+    borderTopRightRadius: R.xxl,
+    paddingTop: SP.md,
+    paddingBottom: Platform.OS === "ios" ? 30 : 20,
     maxHeight: height * 0.58,
-    ...SHADOWS.large,
+    shadowColor: C.violet,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 20,
   },
   panelHandle: {
-    width: 36,
+    width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: COLORS.lightGray,
+    backgroundColor: C.borderMid,
     alignSelf: "center",
-    marginBottom: 10,
+    marginBottom: SP.sm,
   },
-  tripInfoBar: {
+  surgeStripPanel: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: COLORS.cardBg,
-    marginHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    borderRadius: RADIUS.full,
-    marginBottom: SPACING.sm,
+    gap: SP.xs,
+    paddingVertical: 5,
+    marginHorizontal: SP.lg,
+    borderRadius: R.full,
+    backgroundColor: C.warningBg,
+    marginBottom: SP.sm,
+    borderWidth: 1,
+    borderColor: C.warning + "30",
   },
-  tripInfoItem: {
+  surgeStripText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  vehicleList: {
+    maxHeight: 185,
+    paddingHorizontal: SP.lg,
+  },
+  vehicleRow: {
     flexDirection: "row",
     alignItems: "center",
-  },
-  tripInfoText: {
-    fontSize: 12,
-    fontWeight: FONTS.semibold,
-    color: COLORS.textDark,
-    marginLeft: SPACING.xs,
-  },
-  tripInfoDivider: {
-    width: 1,
-    height: 14,
-    backgroundColor: COLORS.lightGray,
-    marginHorizontal: SPACING.md,
-  },
-  rideList: {
-    maxHeight: 180,
-    paddingHorizontal: SPACING.lg,
-  },
-  rideRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    borderRadius: RADIUS.lg,
-    marginVertical: 2,
-  },
-  rideRowSelected: {
-    backgroundColor: COLORS.primaryLight,
+    paddingVertical: SP.sm,
+    paddingHorizontal: SP.sm,
+    borderRadius: R.md,
     borderWidth: 1.5,
-    borderColor: COLORS.primary,
+    borderColor: "transparent",
+    position: "relative",
   },
-  rideRowHighlighted: {
-    backgroundColor: COLORS.cardBg,
+  vehicleRowSelected: {
+    borderColor: C.violet,
+    backgroundColor: C.primarySoft,
+    shadowColor: C.violet,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  rideSeparator: {
-    height: 1,
-    backgroundColor: COLORS.divider,
-    marginHorizontal: SPACING.sm,
-  },
-  rideLeft: {
+  vehicleTag: {
+    position: "absolute",
+    top: -8,
+    left: SP.md,
+    flexDirection: "row",
     alignItems: "center",
-    width: 68,
-    marginRight: SPACING.md,
+    paddingHorizontal: SP.sm,
+    paddingVertical: 2,
+    borderRadius: R.sm,
+    zIndex: 1,
   },
-  rideImage: {
-    width: 56,
-    height: 34,
+  vehicleTagText: {
+    fontSize: 8,
+    fontWeight: "800",
+    color: C.white,
+    letterSpacing: 0.5,
+  },
+  vehicleIconWrap: {
+    width: 66,
+    height: 48,
+    borderRadius: R.md,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: SP.md,
+    backgroundColor: C.surface,
+  },
+  vehicleImage: {
+    width: 52,
+    height: 30,
     resizeMode: "contain",
   },
-  rideEta: {
-    fontSize: 10,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
-    fontWeight: FONTS.medium,
-  },
-  rideCenter: {
-    flex: 1,
-  },
-  rideName: {
-    fontSize: 15,
-    fontWeight: FONTS.semibold,
-    color: COLORS.textDark,
-  },
-  rideNameSelected: {
-    color: COLORS.primaryDark,
-  },
-  rideDescription: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
+  vehicleEta: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: C.success,
     marginTop: 2,
   },
-  rideRight: {
-    alignItems: "flex-end",
-    minWidth: 80,
+  vehicleInfo: { flex: 1 },
+  vehicleName: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: C.textDark,
+    marginBottom: 1,
   },
-  ridePrice: {
-    fontSize: 15,
-    fontWeight: FONTS.bold,
-    color: COLORS.textDark,
-  },
-  ridePriceSelected: {
-    color: COLORS.primaryDark,
-  },
-  surgeIndicator: {
-    marginTop: 2,
-  },
-  fareDetailsBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: SPACING.sm,
-    marginHorizontal: SPACING.lg,
-    marginTop: SPACING.xs,
-  },
-  fareDetailsBtnText: {
-    fontSize: 13,
-    fontWeight: FONTS.semibold,
-    color: COLORS.primary,
-    marginHorizontal: SPACING.xs,
-  },
-
-  // ========== PAYMENT BAR (UPDATED) ==========
-  paymentBar: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    paddingVertical: SPACING.sm,
-    marginHorizontal: SPACING.lg,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
-    marginTop: SPACING.xs,
-  },
-  paymentOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.sm,
-  },
-  paymentOptionActive: {
-    backgroundColor: COLORS.primaryLight,
-  },
-  paymentOptionCash: {
-    backgroundColor: COLORS.orangeLight,
-  },
-  paymentOptionText: {
-    fontSize: 13,
-    fontWeight: FONTS.medium,
-    color: COLORS.textDark,
-    marginLeft: 6,
-  },
-  paymentOptionTextActive: {
-    color: COLORS.primary,
-    fontWeight: FONTS.semibold,
-  },
-  paymentOptionTextCash: {
-    color: COLORS.orange,
-    fontWeight: FONTS.semibold,
-  },
-  recommendedBadge: {
-    backgroundColor: COLORS.primaryLight,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: RADIUS.xs,
-    marginLeft: 4,
-  },
-  recommendedText: {
-    fontSize: 8,
-    fontWeight: FONTS.bold,
-    color: COLORS.primary,
-  },
-
-  // ========== CASH/ONLINE INFO BANNERS ==========
-  cashInfoBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.orangeLight,
-    marginHorizontal: SPACING.lg,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.sm,
-    marginTop: SPACING.xs,
-  },
-  cashInfoText: {
-    flex: 1,
+  vehicleDesc: {
     fontSize: 11,
-    color: COLORS.orange,
-    marginLeft: SPACING.sm,
-    marginRight: SPACING.sm,
-    lineHeight: 16,
+    color: C.textLight,
+    fontWeight: "500",
   },
-  onlineBenefitBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.primaryLight,
-    marginHorizontal: SPACING.lg,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.sm,
-    marginTop: SPACING.xs,
-  },
-  onlineBenefitText: {
-    fontSize: 11,
-    color: COLORS.primary,
-    marginLeft: SPACING.sm,
-    fontWeight: FONTS.medium,
-  },
-
-  // ========== BOOK BUTTON (UPDATED) ==========
-  bookButton: {
-    backgroundColor: COLORS.ctaBlack,
-    marginHorizontal: SPACING.lg,
-    marginTop: SPACING.md,
-    paddingVertical: SPACING.lg,
-    borderRadius: RADIUS.md,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  bookButtonDisabled: {
-    opacity: 0.7,
-  },
-  bookButtonContent: {
-    alignItems: "center",
-  },
-  bookButtonText: {
-    fontSize: 16,
-    fontWeight: FONTS.bold,
-    color: COLORS.white,
-    letterSpacing: 0.3,
-  },
-  bookButtonPaymentBadge: {
+  vehicleCapRow: {
     flexDirection: "row",
     alignItems: "center",
     marginTop: 3,
-    opacity: 0.7,
+    gap: 3,
   },
-  bookButtonPaymentText: {
+  vehicleCapText: {
     fontSize: 10,
-    color: COLORS.white,
-    marginLeft: 4,
-    fontWeight: FONTS.medium,
+    color: C.textFaint,
+    fontWeight: "500",
   },
-
-  // ========== LOADING ==========
+  vehicleRight: { alignItems: "flex-end", gap: SP.xs },
+  vehiclePrice: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: C.textDark,
+    letterSpacing: -0.3,
+  },
+  surgeChip: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: C.warningBg,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  radio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: C.borderMid,
+  },
+  radioSelected: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: C.violet,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  vehicleSeparator: {
+    height: 1,
+    backgroundColor: C.border,
+    marginHorizontal: SP.sm,
+  },
+  fareDetailsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: SP.lg,
+    marginTop: SP.xs,
+    paddingVertical: SP.sm,
+    paddingHorizontal: SP.md,
+    borderRadius: R.md,
+    overflow: "hidden",
+    gap: SP.sm,
+    borderWidth: 1,
+    borderColor: C.violet + "20",
+  },
+  fareDetailsIconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: C.white,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  fareDetailsText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "700",
+    color: C.violet,
+  },
+  paymentBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: SP.lg,
+    marginTop: SP.sm,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+    paddingTop: SP.sm,
+    gap: SP.xs,
+  },
+  paymentOption: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: SP.sm,
+    paddingHorizontal: SP.sm,
+    borderRadius: R.md,
+    borderWidth: 1,
+    borderColor: "transparent",
+    gap: SP.xs,
+  },
+  paymentOptionText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: C.textMid,
+  },
+  recBadge: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: R.sm,
+  },
+  recBadgeText: {
+    fontSize: 7,
+    fontWeight: "800",
+    color: C.white,
+    letterSpacing: 0.3,
+  },
+  infoBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: SP.lg,
+    marginTop: SP.xs,
+    paddingHorizontal: SP.md,
+    paddingVertical: SP.sm,
+    borderRadius: R.md,
+    overflow: "hidden",
+    gap: SP.sm,
+    borderWidth: 1,
+    borderColor: C.warning + "25",
+  },
+  infoBannerText: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: "500",
+    color: C.warning,
+    lineHeight: 16,
+  },
+  bookButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: C.gold,
+    paddingVertical: SP.md + 2,
+    paddingHorizontal: SP.xl,
+    borderRadius: R.full,
+    shadowColor: C.gold,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  bookButtonDisabled: { backgroundColor: C.borderMid, shadowOpacity: 0, opacity: 0.6 },
+  bookButtonLeft: {},
+  bookButtonText: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: C.textDark,
+    letterSpacing: 0.2,
+  },
+  bookButtonPrice: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: C.textDark,
+    opacity: 0.7,
+    marginTop: 1,
+  },
+  bookButtonIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "rgba(0,0,0,0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(255,255,255,0.85)",
     justifyContent: "center",
     alignItems: "center",
   },
-  loadingBox: {
-    backgroundColor: COLORS.white,
-    paddingVertical: SPACING.xxl,
-    paddingHorizontal: SPACING.xxxl,
-    borderRadius: RADIUS.lg,
+  loadingCard: {
+    backgroundColor: C.white,
+    paddingVertical: SP.xxl,
+    paddingHorizontal: SP.xxxl,
+    borderRadius: R.xl,
     alignItems: "center",
-    ...SHADOWS.large,
+    shadowColor: C.violet,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
   },
   loadingText: {
-    marginTop: SPACING.md,
+    marginTop: SP.md,
     fontSize: 14,
-    color: COLORS.textSecondary,
-    fontWeight: FONTS.medium,
+    fontWeight: "600",
+    color: C.textMid,
   },
 
-  // ========== FARE MODAL ==========
+  // ─── FARE MODAL ───
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: C.overlay,
     justifyContent: "flex-end",
   },
   fareModalContainer: {
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: RADIUS.xxl,
-    borderTopRightRadius: RADIUS.xxl,
-    maxHeight: height * 0.85,
+    backgroundColor: C.white,
+    borderTopLeftRadius: R.xxl,
+    borderTopRightRadius: R.xxl,
+    maxHeight: height * 0.87,
     paddingBottom: Platform.OS === "ios" ? 34 : 24,
+  },
+  fareModalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: C.borderMid,
+    alignSelf: "center",
+    marginTop: SP.md,
+    marginBottom: SP.sm,
   },
   fareModalHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.lg,
+    paddingHorizontal: SP.lg,
+    paddingVertical: SP.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
+    borderBottomColor: C.border,
   },
   fareModalTitle: {
-    fontSize: 18,
-    fontWeight: FONTS.bold,
-    color: COLORS.textDark,
-  },
-  fareModalClose: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.cardBg,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  fareVehicleInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
-  },
-  fareVehicleImage: {
-    width: 70,
-    height: 45,
-    resizeMode: "contain",
-  },
-  fareVehicleDetails: {
-    marginLeft: SPACING.lg,
-    flex: 1,
-  },
-  fareVehicleName: {
     fontSize: 16,
-    fontWeight: FONTS.semibold,
-    color: COLORS.textDark,
+    fontWeight: "800",
+    color: C.textDark,
+    letterSpacing: -0.3,
   },
-  fareVehicleDesc: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
+  fareModalSub: {
+    fontSize: 12,
+    color: C.textLight,
+    fontWeight: "500",
     marginTop: 2,
   },
-  fareTripInfo: {
+  fareModalCloseBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: C.surface,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  fareTripStrip: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    backgroundColor: COLORS.cardBg,
-    marginHorizontal: SPACING.lg,
-    marginTop: SPACING.md,
-    borderRadius: RADIUS.md,
+    marginHorizontal: SP.lg,
+    marginTop: SP.lg,
+    paddingVertical: SP.md,
+    borderRadius: R.md,
   },
-  fareTripItem: {
+  fareTripStripItem: {
     flexDirection: "row",
     alignItems: "center",
+    gap: SP.xs,
   },
-  fareTripText: {
+  fareTripStripText: {
     fontSize: 13,
-    fontWeight: FONTS.semibold,
-    color: COLORS.textDark,
-    marginLeft: SPACING.xs,
+    fontWeight: "700",
   },
-  fareTripDivider: {
+  fareTripStripDivider: {
     width: 1,
     height: 16,
-    backgroundColor: COLORS.lightGray,
-    marginHorizontal: SPACING.md,
+    backgroundColor: C.borderMid,
+    marginHorizontal: SP.lg,
   },
-  fareTimeIndicators: {
+  fareSurgeBadges: {
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingHorizontal: SPACING.lg,
-    marginTop: SPACING.md,
+    paddingHorizontal: SP.lg,
+    marginTop: SP.md,
+    gap: SP.sm,
   },
-  fareIndicator: {
+  surgeBadge: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderRadius: RADIUS.full,
-    marginRight: SPACING.sm,
-    marginBottom: SPACING.xs,
+    paddingHorizontal: SP.md,
+    paddingVertical: 5,
+    borderRadius: R.full,
+    gap: SP.xs,
   },
-  fareIndicatorText: {
-    fontSize: 12,
-    fontWeight: FONTS.semibold,
-    color: COLORS.primary,
-    marginLeft: SPACING.xs,
+  surgeBadgeText: { fontSize: 12, fontWeight: "700" },
+  fareSection: {
+    paddingHorizontal: SP.lg,
+    paddingTop: SP.lg,
   },
-  fareBreakdownSection: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
-  },
-  fareBreakdownTitle: {
-    fontSize: 14,
-    fontWeight: FONTS.semibold,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.md,
+  fareSectionTitle: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: C.textFaint,
+    letterSpacing: 1,
+    marginBottom: SP.md,
     textTransform: "uppercase",
-    letterSpacing: 0.5,
   },
   fareRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: SPACING.sm,
+    paddingVertical: SP.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
   },
-  fareLabelRow: {
+  fareRowLeft: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
+    marginRight: SP.sm,
   },
-  fareLabel: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
+  fareRowLabel: {
+    fontSize: 13,
+    color: C.textMid,
+    fontWeight: "500",
+    flexShrink: 1,
   },
-  fareValue: {
-    fontSize: 14,
-    fontWeight: FONTS.medium,
-    color: COLORS.textDark,
+  fareRowValue: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: C.textDark,
   },
-  fareTotalRow: {
+  fareTotalCard: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: SPACING.md,
-    marginTop: SPACING.sm,
-    backgroundColor: COLORS.successBg,
-    marginHorizontal: SPACING.lg,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: RADIUS.md,
+    marginHorizontal: SP.lg,
+    marginTop: SP.lg,
+    padding: SP.lg,
+    borderRadius: R.lg,
+    overflow: "hidden",
+    position: "relative",
+    shadowColor: C.violet,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  fareTotalDecor: {
+    position: "absolute",
+    top: -20,
+    right: -20,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "rgba(255,255,255,0.06)",
   },
   fareTotalLabel: {
-    fontSize: 16,
-    fontWeight: FONTS.bold,
-    color: COLORS.textDark,
+    fontSize: 14,
+    fontWeight: "800",
+    color: C.white,
+  },
+  fareTotalSub: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.7)",
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  fareTotalRight: {
+    flexDirection: "row",
+    alignItems: "baseline",
   },
   fareTotalValue: {
-    fontSize: 22,
-    fontWeight: FONTS.extrabold,
-    color: COLORS.success,
+    fontSize: 24,
+    fontWeight: "900",
+    color: C.white,
+    letterSpacing: -0.5,
   },
-
-  // ========== PAYMENT METHOD INFO (FARE MODAL) ==========
-  paymentMethodInfo: {
-    marginHorizontal: SPACING.lg,
-    marginTop: SPACING.lg,
-    backgroundColor: COLORS.cardBg,
-    borderRadius: RADIUS.md,
-    padding: SPACING.lg,
+  fareTotalDecimal: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.8)",
+    marginLeft: 1,
   },
-  paymentMethodHeader: {
+  earningsCard: {
+    marginHorizontal: SP.lg,
+    marginTop: SP.lg,
+    padding: SP.lg,
+    backgroundColor: C.surface,
+    borderRadius: R.lg,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  earningsHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: SPACING.md,
+    gap: SP.sm,
+    marginBottom: SP.md,
   },
-  paymentMethodTitle: {
-    fontSize: 15,
-    fontWeight: FONTS.semibold,
-    color: COLORS.textDark,
-    marginLeft: SPACING.sm,
-  },
-  paymentDetailRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  earningsIconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: C.primarySoft,
+    justifyContent: "center",
     alignItems: "center",
-    paddingVertical: SPACING.xs,
-  },
-  paymentDetailLabel: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-  },
-  paymentDetailValue: {
-    fontSize: 13,
-    fontWeight: FONTS.semibold,
-    color: COLORS.textDark,
-  },
-  paymentInfoBox: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    backgroundColor: COLORS.orangeLight,
-    padding: SPACING.md,
-    borderRadius: RADIUS.sm,
-    marginTop: SPACING.sm,
-  },
-  paymentInfoText: {
-    flex: 1,
-    fontSize: 11,
-    color: COLORS.orange,
-    marginLeft: SPACING.sm,
-    lineHeight: 16,
-  },
-
-  // ========== EARNINGS TRANSPARENCY (FARE MODAL) ==========
-  earningsTransparency: {
-    marginHorizontal: SPACING.lg,
-    marginTop: SPACING.lg,
-    padding: SPACING.lg,
-    backgroundColor: COLORS.cardBg,
-    borderRadius: RADIUS.md,
   },
   earningsTitle: {
-    fontSize: 13,
-    fontWeight: FONTS.semibold,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.md,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+    fontSize: 12,
+    fontWeight: "800",
+    color: C.textDark,
+    letterSpacing: -0.2,
   },
-  earningsBarContainer: {
+  earningsBar: {
     flexDirection: "row",
-    height: 8,
-    borderRadius: 4,
+    height: 10,
+    borderRadius: 5,
     overflow: "hidden",
-    marginBottom: SPACING.md,
-  },
-  earningsBarSegment: {
-    height: "100%",
-    marginRight: 1,
+    marginBottom: SP.md,
   },
   earningsLegend: {
     flexDirection: "row",
     flexWrap: "wrap",
+    gap: SP.md,
   },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginRight: SPACING.lg,
-    marginBottom: SPACING.xs,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: SPACING.xs,
-  },
-  legendText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    fontWeight: FONTS.medium,
-  },
-
-  // ========== FARE NOTE ==========
-  fareNote: {
+  legendItem: { flexDirection: "row", alignItems: "center", gap: SP.xs },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendText: { fontSize: 12, color: C.textMid, fontWeight: "500" },
+  cashNoteBox: {
     flexDirection: "row",
     alignItems: "flex-start",
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.lg,
-    marginTop: SPACING.md,
-    backgroundColor: COLORS.cardBg,
-    marginHorizontal: SPACING.lg,
-    borderRadius: RADIUS.md,
+    marginHorizontal: SP.lg,
+    marginTop: SP.lg,
+    padding: SP.md,
+    borderRadius: R.md,
+    overflow: "hidden",
+    gap: SP.sm,
+    borderWidth: 1,
+    borderColor: C.warning + "30",
   },
-  fareNoteText: {
+  cashNoteText: {
     flex: 1,
     fontSize: 12,
-    color: COLORS.textMuted,
-    marginLeft: SPACING.sm,
-    lineHeight: 18,
+    color: C.warning,
+    fontWeight: "500",
+    lineHeight: 17,
+  },
+  fareDisclaimer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginHorizontal: SP.lg,
+    marginTop: SP.lg,
+    padding: SP.md,
+    backgroundColor: C.surface,
+    borderRadius: R.md,
+    gap: SP.sm,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  fareDisclaimerText: {
+    flex: 1,
+    fontSize: 11,
+    color: C.textFaint,
+    fontWeight: "500",
+    lineHeight: 17,
   },
 });

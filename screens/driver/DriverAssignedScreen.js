@@ -1,190 +1,128 @@
-// screens/driver/DriverAssignedScreen.js
+// screens/driver/DriverArrivedScreen.js
 
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  ActivityIndicator,
   TouchableOpacity,
-  Linking,
-  Image,
   Animated,
-  StatusBar,
-  Dimensions,
   Platform,
-  Share,
+  Linking,
+  Alert,
+  ActivityIndicator,
+  ScrollView,
 } from "react-native";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ScreenWrapper from "../../components/ScreenWrapper";
 import { API_BASE_URL } from "../../config";
-import { getDistance } from "geolib";
-import { Alert } from "react-native";
-
-const { width, height } = Dimensions.get("window");
 
 // ==================== DESIGN SYSTEM ====================
-const COLORS = {
-  // Primary Colors
-  primary: "#00A86B",
-  primaryLight: "rgba(0, 168, 107, 0.1)",
-  primaryDark: "#008F5B",
-
-  // Accent
-  accent: "#FF6B00",
-  accentLight: "rgba(255, 107, 0, 0.1)",
-
-  // Background & Surface
-  background: "#F5F6F8",
-  white: "#FFFFFF",
-  surface: "#F9FAFB",
+const C = {
+  violet: "#3D2B8C",
+  violetDark: "#2A1E6B",
+  violetMid: "#4D3CA0",
+  blue: "#1E40AF",
+  blueDark: "#1E3A8A",
+  blueDeep: "#172554",
+  primarySoft: "#EEEAFB",
+  primarySoftDeep: "#DCD4F5",
+  lavenderBg: "#F1EEFB",
+  primaryFade: "rgba(61,43,140,0.08)",
+  primaryGlow: "rgba(61,43,140,0.30)",
+  gold: "#F5C518",
+  goldLight: "#FFD740",
+  goldDark: "#C9A015",
+  goldDeep: "#7A5C00",
+  goldSoft: "#FEF7E0",
+  bg: "#F7F7FA",
   card: "#FFFFFF",
-
-  // Text Colors
-  textDark: "#111111",
-  textPrimary: "#1F2937",
-  textSecondary: "#6B7280",
-  textMuted: "#9CA3AF",
-  textLight: "#FFFFFF",
-
-  // Status Colors
-  success: "#10B981",
-  successBg: "#ECFDF5",
-  successDark: "#059669",
+  surface: "#F9FAFB",
+  textDark: "#0F0F1F",
+  textPrimary: "#1F1F33",
+  textMid: "#4A4A66",
+  textLight: "#7B7B95",
+  textFaint: "#A8A8BC",
+  border: "#EDEDF2",
+  borderMid: "#DDDDE5",
+  divider: "#E8E8EE",
+  pastelBlue: "#E3F0FF",
+  blueAccent: "#3B82F6",
+  pastelGreen: "#E8F5E9",
+  green: "#34A853",
+  greenDark: "#16A34A",
+  pastelOrange: "#FFE8D6",
+  orange: "#F59E0B",
+  pastelRed: "#FEE2E2",
+  red: "#EF4444",
+  success: "#22C55E",
+  successBg: "#E8F8EF",
+  successDark: "#16A34A",
   warning: "#F59E0B",
-  warningBg: "#FEF3C7",
-  warningDark: "#D97706",
-  error: "#EF4444",
-  errorBg: "#FEF2F2",
-  info: "#3B82F6",
-  infoBg: "#EFF6FF",
-
-  // Others
-  lightGray: "#E5E7EB",
-  divider: "#EEEEEE",
-  overlay: "rgba(0, 0, 0, 0.5)",
-  dark: "#0F172A",
-  darkLight: "#1E293B",
-
-  // Map Colors
-  routeMain: "#00A86B",
-  routeOutline: "#B8E5D4",
-  pickupGreen: "#00A86B",
-  dropRed: "#EF4444",
-  driverBlue: "#3B82F6",
+  warningBg: "#FFFBEB",
+  white: "#FFFFFF",
+  shadow: "#0F0F1F",
 };
 
-const SPACING = {
-  xs: 4,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  xxl: 24,
-  xxxl: 32,
+const SP = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32 };
+const R = { sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, full: 999 };
+
+const GRAD = {
+  primary: [C.violet, C.blue],
+  primaryDeep: [C.violetDark, C.blueDeep],
+  gold: [C.goldLight, C.gold, C.goldDark],
+  goldShine: [C.goldLight, C.gold],
+  lavender: [C.primarySoft, C.lavenderBg],
 };
 
-const RADIUS = {
-  xs: 4,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  xxl: 24,
-  xxxl: 32,
-  full: 100,
-};
-
-const SHADOWS = {
-  small: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  medium: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  large: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-};
-
-// ==================== MAP STYLE ====================
-const mapStyle = [
-  { featureType: "administrative", elementType: "geometry", stylers: [{ visibility: "off" }] },
-  { featureType: "poi", stylers: [{ visibility: "simplified" }] },
-  { featureType: "poi.business", stylers: [{ visibility: "off" }] },
-  { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
-  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#e8e8e8" }] },
-  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
-  { featureType: "transit", stylers: [{ visibility: "off" }] },
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9e4f4" }] },
-  { featureType: "landscape", elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
-];
-
-// ==================== STATUS CONFIG ====================
-const STATUS_CONFIG = {
-  accepted: {
-    title: "Driver is on the way",
-    subtitle: "Your driver is coming to pick you up",
-    color: COLORS.primary,
-    icon: "car",
-    showOTP: true,
-  },
-  arrived: {
-    title: "Driver has arrived",
-    subtitle: "Your driver is waiting at the pickup point",
-    color: COLORS.success,
-    icon: "checkmark-circle",
-    showOTP: true,
-  },
-  in_progress: {
-    title: "Ride in progress",
-    subtitle: "Enjoy your ride!",
-    color: COLORS.info,
-    icon: "navigate",
-    showOTP: false,
-  },
+const formatCurrency = (amount) => {
+  if (amount === null || amount === undefined) return "₹0";
+  return `₹${Number(amount).toLocaleString("en-IN")}`;
 };
 
 // ==================== MAIN COMPONENT ====================
-export default function DriverAssignedScreen({ route, navigation }) {
-  const { orderId } = route.params;
-  const mapRef = useRef(null);
+export default function DriverArrivedScreen({ route, navigation }) {
+  const {
+    orderId,
+    otp: otpParam,
+    driver: driverParam,
+    orderData: initialOrderData,
+  } = route.params || {};
+
   const insets = useSafeAreaInsets();
 
-  // States
-  const [order, setOrder] = useState(null);
-  const [driverCoord, setDriverCoord] = useState(null);
-  const [pickupCoord, setPickupCoord] = useState(null);
-  const [distanceKm, setDistanceKm] = useState(null);
-  const [etaMin, setEtaMin] = useState(null);
-  const [showDriverDetails, setShowDriverDetails] = useState(false);
+  const [order, setOrder] = useState(initialOrderData || null);
+  const [loading, setLoading] = useState(!initialOrderData);
 
-  // Animations
-  const slideAnim = useRef(new Animated.Value(100)).current;
+  // ── Animations ──
+  const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const driverMarkerAnim = useRef(new Animated.Value(0)).current;
-  const otpScaleAnim = useRef(new Animated.Value(0.8)).current;
+  const otpAnim = useRef(new Animated.Value(0)).current;
+  const goldPulse = useRef(new Animated.Value(1)).current;
+  const successPing = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(40)).current;
 
-  // ==================== ENTRY ANIMATIONS ====================
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
+  const runAnimations = () => {
+    Animated.sequence([
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.spring(otpAnim, {
         toValue: 1,
-        duration: 500,
+        tension: 50,
+        friction: 7,
         useNativeDriver: true,
       }),
       Animated.spring(slideAnim, {
@@ -193,148 +131,105 @@ export default function DriverAssignedScreen({ route, navigation }) {
         friction: 8,
         useNativeDriver: true,
       }),
-      Animated.spring(otpScaleAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 6,
-        useNativeDriver: true,
-      }),
     ]).start();
 
-    // Pulse animation for driver marker
+    // Gold pulse loop
     Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.2,
-          duration: 1000,
+        Animated.timing(goldPulse, {
+          toValue: 1.02,
+          duration: 1500,
           useNativeDriver: true,
         }),
-        Animated.timing(pulseAnim, {
+        Animated.timing(goldPulse, {
           toValue: 1,
-          duration: 1000,
+          duration: 1500,
           useNativeDriver: true,
         }),
       ])
     ).start();
 
-    // Driver marker bounce
+    // Success ping loop
     Animated.loop(
       Animated.sequence([
-        Animated.timing(driverMarkerAnim, {
-          toValue: -5,
-          duration: 500,
+        Animated.timing(successPing, {
+          toValue: 1.08,
+          duration: 1200,
           useNativeDriver: true,
         }),
-        Animated.timing(driverMarkerAnim, {
-          toValue: 0,
-          duration: 500,
+        Animated.timing(successPing, {
+          toValue: 1,
+          duration: 1200,
           useNativeDriver: true,
         }),
       ])
     ).start();
+  };
+
+  // ── Fetch order ──
+  useEffect(() => {
+    if (initialOrderData) {
+      runAnimations();
+      return;
+    }
+    fetchOrder();
   }, []);
 
-  // ==================== ORDER POLLING ====================
+  const fetchOrder = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/orders/${orderId}`);
+      const data = await res.json();
+      setOrder(data);
+      setLoading(false);
+      runAnimations();
+    } catch (err) {
+      console.log("Fetch order error:", err);
+      setLoading(false);
+    }
+  };
+
+  // ── Polling ──
   useEffect(() => {
-    const fetchOrder = async () => {
+    const interval = setInterval(async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/orders/${orderId}`);
         const data = await res.json();
         setOrder(data);
 
-        if (data.driverLocation) {
-          setDriverCoord({
-            latitude: Number(data.driverLocation.lat),
-            longitude: Number(data.driverLocation.lng),
-          });
+        if (data.status === "in_progress") {
+          clearInterval(interval);
+          navigation.replace("LiveRideScreen", { orderId });
         }
-
-        if (data.pickupLocation) {
-          setPickupCoord({
-            latitude: Number(data.pickupLocation.lat),
-            longitude: Number(data.pickupLocation.lng),
-          });
+        if (data.status === "cancelled") {
+          clearInterval(interval);
+          Alert.alert("Booking Cancelled", "Your booking was cancelled.", [
+            { text: "OK", onPress: () => navigation.navigate("HomeTabs") },
+          ]);
         }
       } catch (err) {
-        console.log("ORDER FETCH ERROR", err);
+        console.log("Poll error:", err);
       }
-    };
-
-    fetchOrder();
-    const interval = setInterval(fetchOrder, 3000);
-
+    }, 3000);
     return () => clearInterval(interval);
   }, [orderId]);
 
-  // ==================== DISTANCE CALCULATION ====================
-  useEffect(() => {
-    if (!pickupCoord || !driverCoord) return;
-
-    const meters = getDistance(pickupCoord, driverCoord);
-    const km = meters / 1000;
-    setDistanceKm(km.toFixed(1));
-
-    const avgSpeed = 30;
-    const minutes = Math.max(1, Math.ceil((km / avgSpeed) * 60));
-    setEtaMin(minutes);
-
-    mapRef.current?.fitToCoordinates([pickupCoord, driverCoord], {
-      edgePadding: {
-        top: 150,
-        right: 80,
-        bottom: height * 0.45,
-        left: 80,
-      },
-      animated: true,
-    });
-  }, [pickupCoord, driverCoord]);
-
-  // ==================== STATUS CHANGE HANDLERS ====================
-  useEffect(() => {
-    if (order?.status === "in_progress") {
-      navigation.replace("LiveRideScreen", { orderId });
+  // ── Handlers ──
+  const handleCall = () => {
+    const phone =
+      driverParam?.phone || order?.driver?.phone || order?.driver_phone;
+    if (phone) {
+      Linking.openURL(`tel:${phone}`);
+    } else {
+      Alert.alert("Not Available", "Driver phone not available.");
     }
-  }, [order?.status]);
+  };
 
-  useEffect(() => {
-    if (order?.status === "arrived") {
-      Alert.alert(
-        "🚗 Driver Arrived!",
-        "Your driver is waiting at the pickup point. Please proceed to meet them.",
-        [{ text: "OK", style: "default" }]
-      );
-    }
-  }, [order?.status]);
-
-  // ==================== HANDLERS ====================
-  const callDriver = useCallback(() => {
-    if (order?.driver?.phone) {
-      Linking.openURL(`tel:${order.driver.phone}`);
-    }
-  }, [order?.driver?.phone]);
-
-  const messageDriver = useCallback(() => {
-    if (order?.driver?.phone) {
-      Linking.openURL(`sms:${order.driver.phone}`);
-    }
-  }, [order?.driver?.phone]);
-
-  const shareRide = useCallback(async () => {
-    try {
-      await Share.share({
-        message: `I'm on my way! My driver ${order?.driver?.full_name} is picking me up. Vehicle: ${order?.driver?.vehicle || "Car"} (${order?.driver?.vehicle_number || ""}). Track my ride for safety.`,
-      });
-    } catch (error) {
-      console.log("Share error:", error);
-    }
-  }, [order]);
-
-  const cancelRide = useCallback(() => {
+  const handleCancel = () => {
     Alert.alert(
-      "Cancel Ride?",
-      "Are you sure you want to cancel? Cancellation charges may apply.",
+      "Cancel Booking?",
+      "Your driver has arrived. Are you sure you want to cancel?",
       [
-        { text: "No", style: "cancel" },
+        { text: "No, Continue", style: "cancel" },
         {
           text: "Yes, Cancel",
           style: "destructive",
@@ -342,816 +237,1047 @@ export default function DriverAssignedScreen({ route, navigation }) {
             try {
               await fetch(`${API_BASE_URL}/orders/${orderId}/cancel`, {
                 method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  reason: "User cancelled after driver arrived",
+                }),
               });
-              navigation.goBack();
-            } catch (e) {
-              console.log("Cancel error:", e);
+              navigation.navigate("HomeTabs");
+            } catch {
+              Alert.alert("Error", "Failed to cancel. Please try again.");
             }
           },
         },
       ]
     );
-  }, [orderId, navigation]);
-
-  // ==================== GET STATUS CONFIG ====================
-  const getStatusConfig = () => {
-    return STATUS_CONFIG[order?.status] || STATUS_CONFIG.accepted;
   };
 
-  // ==================== LOADING STATE ====================
-  if (!order || !order.driver) {
+  // ── Loading ──
+  if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <StatusBar barStyle="dark-content" />
-        <View style={styles.loadingContent}>
-          <View style={styles.loadingSpinner}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+      <ScreenWrapper backgroundColor={C.bg}>
+        <View style={styles.loaderContainer}>
+          <View style={styles.loaderCard}>
+            <LinearGradient colors={GRAD.primary} style={styles.loaderIconWrap}>
+              <Ionicons name="car-sport" size={32} color={C.white} />
+            </LinearGradient>
+            <ActivityIndicator
+              size="large"
+              color={C.violet}
+              style={{ marginTop: SP.xl }}
+            />
+            <Text style={styles.loaderTitle}>Loading ride details...</Text>
+            <Text style={styles.loaderSub}>Please wait a moment</Text>
           </View>
-          <Text style={styles.loadingTitle}>Connecting to driver...</Text>
-          <Text style={styles.loadingSubtitle}>Please wait a moment</Text>
         </View>
-      </View>
+      </ScreenWrapper>
     );
   }
 
-  const { driver, status, otp } = order;
-  const statusConfig = getStatusConfig();
+  // ── Derived data ──
+  const otp = otpParam || order?.otp;
+  const otpDigits = otp
+    ? String(otp).padStart(4, "0").split("")
+    : ["—", "—", "—", "—"];
 
-  // ==================== MAIN RENDER ====================
+  const driverName =
+    driverParam?.full_name ||
+    order?.driver?.full_name ||
+    order?.driver_name ||
+    "Your Driver";
+
+  const vehicle =
+    order?.vehicle_model ||
+    order?.vehicle ||
+    driverParam?.vehicle ||
+    "Vehicle";
+
+  const price = parseFloat(order?.customer_total || order?.price || 0);
+  const payMethod = order?.payment_method || "cash";
+
+  // ==================== RENDER ====================
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+    <ScreenWrapper backgroundColor={C.bg} statusBarStyle="dark-content" statusBarBg={C.white}>
 
-      {/* ==================== MAP ==================== */}
-      <MapView
-        ref={mapRef}
-        style={styles.map}
-        provider={PROVIDER_GOOGLE}
-        customMapStyle={mapStyle}
-        showsUserLocation={false}
-        showsMyLocationButton={false}
-        showsCompass={false}
-        rotateEnabled={false}
-        pitchEnabled={false}
-      >
-        {/* Pickup Marker */}
-        {pickupCoord && (
-          <Marker coordinate={pickupCoord} anchor={{ x: 0.5, y: 0.5 }}>
-            <View style={styles.pickupMarkerWrapper}>
-              <Animated.View
-                style={[
-                  styles.pickupPulse,
-                  { transform: [{ scale: pulseAnim }] },
-                ]}
-              />
-              <View style={styles.pickupMarker}>
-                <View style={styles.pickupMarkerInner} />
-              </View>
-            </View>
-          </Marker>
-        )}
-
-        {/* Driver Marker */}
-        {driverCoord && (
-          <Marker coordinate={driverCoord} anchor={{ x: 0.5, y: 0.5 }}>
-            <Animated.View
-              style={[
-                styles.driverMarkerWrapper,
-                { transform: [{ translateY: driverMarkerAnim }] },
-              ]}
-            >
-              <View style={styles.driverMarker}>
-                <Ionicons name="car-sport" size={22} color={COLORS.white} />
-              </View>
-              <View style={styles.driverMarkerShadow} />
-            </Animated.View>
-          </Marker>
-        )}
-      </MapView>
-
-      {/* ==================== TOP BAR ==================== */}
-      <Animated.View
-        style={[
-          styles.topBar,
-          {
-            paddingTop: insets.top + SPACING.sm,
-            opacity: fadeAnim,
-          },
-        ]}
-      >
-        {/* Back Button */}
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="arrow-back" size={22} color={COLORS.textDark} />
+      {/* ── HEADER ── */}
+      <View style={styles.header}>
+        {/* Left: Cancel button */}
+        <TouchableOpacity style={styles.headerBackBtn} onPress={handleCancel}>
+          <Ionicons name="chevron-back" size={20} color={C.textDark} />
         </TouchableOpacity>
 
-        {/* Status Badge */}
-        <View style={[styles.statusBadge, { backgroundColor: statusConfig.color + "15" }]}>
-          <Ionicons name={statusConfig.icon} size={16} color={statusConfig.color} />
-          <Text style={[styles.statusBadgeText, { color: statusConfig.color }]}>
-            {status === "arrived" ? "Arrived" : "On the way"}
-          </Text>
+        {/* Center: title + LIVE badge */}
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>Driver Arrived</Text>
+          <View style={styles.liveBadge}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveText}>LIVE</Text>
+          </View>
         </View>
 
-        {/* Share Button */}
-        <TouchableOpacity
-          style={styles.shareButton}
-          onPress={shareRide}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="share-outline" size={20} color={COLORS.textDark} />
+        {/* Right: Help */}
+        <TouchableOpacity style={styles.helpPill}>
+          <Ionicons name="headset" size={15} color={C.violet} />
+          <Text style={styles.helpText}>Help</Text>
         </TouchableOpacity>
-      </Animated.View>
+      </View>
 
-      {/* ==================== ETA CARD ==================== */}
-      {distanceKm && etaMin && (
-        <Animated.View style={[styles.etaCard, { opacity: fadeAnim }]}>
-          <View style={styles.etaContent}>
-            <Text style={styles.etaTime}>{etaMin}</Text>
-            <Text style={styles.etaUnit}>min</Text>
-          </View>
-          <View style={styles.etaDivider} />
-          <View style={styles.etaContent}>
-            <Text style={styles.etaDistance}>{distanceKm}</Text>
-            <Text style={styles.etaUnit}>km</Text>
-          </View>
-        </Animated.View>
-      )}
-
-      {/* ==================== BOTTOM SHEET ==================== */}
-      <Animated.View
-        style={[
-          styles.bottomSheet,
-          {
-            paddingBottom: insets.bottom > 0 ? insets.bottom : SPACING.xxl,
-            transform: [{ translateY: slideAnim }],
-            opacity: fadeAnim,
-          },
-        ]}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        {/* Handle */}
-        <View style={styles.sheetHandle} />
 
-        {/* Status Header */}
-        <View style={styles.statusHeader}>
-          <View style={[styles.statusIconBg, { backgroundColor: statusConfig.color + "15" }]}>
-            <Ionicons name={statusConfig.icon} size={20} color={statusConfig.color} />
-          </View>
-          <View style={styles.statusTextContainer}>
-            <Text style={styles.statusTitle}>{statusConfig.title}</Text>
-            <Text style={styles.statusSubtitle}>{statusConfig.subtitle}</Text>
-          </View>
-        </View>
-
-        {/* Driver Card */}
-        <View style={styles.driverCard}>
-          <View style={styles.driverInfo}>
-            {/* Avatar */}
-            <View style={styles.driverAvatar}>
-              {driver.photo ? (
-                <Image source={{ uri: driver.photo }} style={styles.driverPhoto} />
-              ) : (
-                <Text style={styles.driverInitial}>
-                  {driver.full_name?.charAt(0)?.toUpperCase() || "D"}
-                </Text>
-              )}
-              <View style={styles.verifiedBadge}>
-                <Ionicons name="checkmark" size={10} color={COLORS.white} />
-              </View>
-            </View>
-
-            {/* Driver Details */}
-            <View style={styles.driverDetails}>
-              <Text style={styles.driverName}>{driver.full_name || "Driver"}</Text>
-              <View style={styles.ratingRow}>
-                <Ionicons name="star" size={14} color={COLORS.warning} />
-                <Text style={styles.ratingText}>{driver.rating || "4.8"}</Text>
-                <Text style={styles.tripCount}>• {driver.trips || "500"}+ trips</Text>
-              </View>
-            </View>
-
-            {/* Action Buttons */}
-            <View style={styles.actionButtons}>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={messageDriver}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="chatbubble-outline" size={18} color={COLORS.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.callButton]}
-                onPress={callDriver}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="call" size={18} color={COLORS.white} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Vehicle Info */}
-          <View style={styles.vehicleInfo}>
-            <View style={styles.vehicleDetails}>
-              <Ionicons name="car" size={18} color={COLORS.textSecondary} />
-              <Text style={styles.vehicleText}>
-                {driver.vehicle || "Sedan"} • {driver.vehicle_color || "White"}
-              </Text>
-            </View>
-            <View style={styles.vehicleNumberBadge}>
-              <Text style={styles.vehicleNumber}>
-                {driver.vehicle_number || "MH 12 AB 1234"}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* OTP Section */}
-        {statusConfig.showOTP && otp && (
+        {/* ── HERO SECTION ── */}
+        <Animated.View
+          style={[
+            styles.heroSection,
+            { transform: [{ scale: scaleAnim }], opacity: fadeAnim },
+          ]}
+        >
+          {/* Pulsing background ring */}
           <Animated.View
             style={[
-              styles.otpSection,
-              { transform: [{ scale: otpScaleAnim }] },
+              styles.heroRingOuter,
+              { transform: [{ scale: successPing }] },
             ]}
+          />
+
+          {/* Gradient circle with checkmark */}
+          <LinearGradient
+            colors={GRAD.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroCircle}
           >
-            <View style={styles.otpHeader}>
-              <View style={styles.otpIconBg}>
-                <Ionicons name="key" size={16} color={COLORS.warning} />
-              </View>
-              <Text style={styles.otpLabel}>Share this OTP with driver</Text>
+            <View style={styles.heroCircleDecor} />
+            <Ionicons name="location" size={40} color={C.white} />
+          </LinearGradient>
+
+          <Text style={styles.heroTitle}>Driver Arrived! 🎉</Text>
+          <Text style={styles.heroSubtitle}>
+            Share the OTP to start your ride
+          </Text>
+
+          {/* Fare + payment badge */}
+          <View style={styles.heroBadgeRow}>
+            <View style={styles.heroBadge}>
+              <Ionicons name="checkmark-circle" size={14} color={C.success} />
+              <Text style={styles.heroBadgeText}>
+                {formatCurrency(price)}{" "}
+                {payMethod === "cash" ? "· Pay Cash" : "· Pay Online"}
+              </Text>
             </View>
-            <View style={styles.otpContainer}>
-              {otp.toString().split("").map((digit, index) => (
-                <View key={index} style={styles.otpDigitBox}>
+          </View>
+        </Animated.View>
+
+        {/* ── OTP CARD ── */}
+        <Animated.View
+          style={[
+            styles.otpCard,
+            {
+              opacity: otpAnim,
+              transform: [
+                {
+                  translateY: otpAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [30, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          {/* Card header */}
+          <LinearGradient
+            colors={GRAD.lavender}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.otpCardHeader}
+          >
+            <View style={styles.otpCardHeaderIcon}>
+              <Ionicons name="key" size={14} color={C.violet} />
+            </View>
+            <Text style={styles.otpCardHeaderTitle}>Your OTP Code</Text>
+            <View style={styles.otpSecureBadge}>
+              <Ionicons name="shield-checkmark" size={11} color={C.success} />
+              <Text style={styles.otpSecureText}>Secure</Text>
+            </View>
+          </LinearGradient>
+
+          {/* OTP digits */}
+          <View style={styles.otpBody}>
+            <View style={styles.otpRow}>
+              {otpDigits.map((digit, index) => (
+                <LinearGradient
+                  key={index}
+                  colors={GRAD.primary}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.otpBox}
+                >
                   <Text style={styles.otpDigit}>{digit}</Text>
-                </View>
+                </LinearGradient>
               ))}
             </View>
-            <Text style={styles.otpNote}>
-              Driver will ask for this code to start the ride
+            <Text style={styles.otpHint}>
+              Share this code with your driver to begin
             </Text>
-          </Animated.View>
-        )}
+          </View>
+        </Animated.View>
 
-        {/* Quick Actions */}
-        <View style={styles.quickActions}>
-          <TouchableOpacity
-            style={styles.quickActionItem}
-            onPress={shareRide}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: COLORS.infoBg }]}>
-              <Ionicons name="share-social" size={18} color={COLORS.info} />
-            </View>
-            <Text style={styles.quickActionText}>Share Trip</Text>
-          </TouchableOpacity>
+        {/* ── DRIVER CARD ── */}
+        <Animated.View
+          style={[
+            styles.driverCard,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          {/* Gradient avatar */}
+          <LinearGradient colors={GRAD.primary} style={styles.driverAvatar}>
+            <Text style={styles.driverAvatarText}>
+              {driverName.charAt(0).toUpperCase()}
+            </Text>
+          </LinearGradient>
 
-          <TouchableOpacity
-            style={styles.quickActionItem}
-            onPress={() => Alert.alert("Safety", "Emergency contacts will be notified")}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: COLORS.errorBg }]}>
-              <Ionicons name="shield-checkmark" size={18} color={COLORS.error} />
-            </View>
-            <Text style={styles.quickActionText}>Safety</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.quickActionItem}
-            onPress={cancelRide}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: COLORS.surface }]}>
-              <Ionicons name="close-circle" size={18} color={COLORS.textSecondary} />
-            </View>
-            <Text style={styles.quickActionText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Arrived Indicator */}
-        {status === "arrived" && (
-          <View style={styles.arrivedBanner}>
-            <View style={styles.arrivedIconBg}>
-              <Ionicons name="checkmark-circle" size={20} color={COLORS.success} />
-            </View>
-            <View style={styles.arrivedTextContainer}>
-              <Text style={styles.arrivedTitle}>Driver has arrived!</Text>
-              <Text style={styles.arrivedSubtitle}>Please proceed to the pickup point</Text>
+          <View style={styles.driverInfo}>
+            <Text style={styles.driverName}>{driverName}</Text>
+            <Text style={styles.driverVehicle}>{vehicle}</Text>
+            <View style={styles.driverRatingRow}>
+              <Ionicons name="star" size={12} color={C.gold} />
+              <Text style={styles.driverRating}>4.9</Text>
+              <View style={styles.ratingDivider} />
+              <Text style={styles.driverTrips}>150+ rides</Text>
             </View>
           </View>
-        )}
 
-        {/* In Progress Indicator */}
-        {status === "in_progress" && (
-          <View style={styles.progressBanner}>
-            <View style={styles.progressIconBg}>
-              <Ionicons name="navigate" size={20} color={COLORS.info} />
+          <View style={styles.driverActions}>
+            {/* Call button */}
+            <TouchableOpacity style={styles.callBtn} onPress={handleCall}>
+              <Ionicons name="call" size={18} color={C.white} />
+            </TouchableOpacity>
+            {/* Message button */}
+            <TouchableOpacity style={styles.msgBtn}>
+              <Ionicons name="chatbubble-ellipses" size={16} color={C.violet} />
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+
+        {/* ── PAYMENT SUMMARY CARD ── */}
+        <Animated.View
+          style={[
+            styles.paymentCard,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          {/* Card header */}
+          <LinearGradient
+            colors={GRAD.lavender}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.paymentCardHeader}
+          >
+            <View style={styles.paymentCardHeaderIcon}>
+              <Ionicons name="receipt" size={14} color={C.violet} />
             </View>
-            <View style={styles.progressTextContainer}>
-              <Text style={styles.progressTitle}>Ride in progress</Text>
-              <Text style={styles.progressSubtitle}>Enjoy your ride!</Text>
+            <Text style={styles.paymentCardTitle}>Payment Summary</Text>
+          </LinearGradient>
+
+          {/* Payment strip: 2 columns */}
+          <View style={styles.paymentStrip}>
+            <View style={styles.paymentStripItem}>
+              <View style={styles.paymentStripLabel}>
+                <Ionicons
+                  name="car-sport-outline"
+                  size={13}
+                  color={C.textLight}
+                />
+                <Text style={styles.paymentStripLabelText}>Total Fare</Text>
+              </View>
+              <Text style={[styles.paymentStripValue, { color: C.violet }]}>
+                {formatCurrency(price)}
+              </Text>
+            </View>
+
+            <View style={styles.paymentStripDivider} />
+
+            <View style={styles.paymentStripItem}>
+              <View style={styles.paymentStripLabel}>
+                <Ionicons
+                  name={
+                    payMethod === "cash" ? "cash-outline" : "card-outline"
+                  }
+                  size={13}
+                  color={C.textLight}
+                />
+                <Text style={styles.paymentStripLabelText}>Payment</Text>
+              </View>
+              <Text style={[styles.paymentStripValue, { color: C.textDark }]}>
+                {payMethod === "cash" ? "Pay Cash" : "Pay Online"}
+              </Text>
             </View>
           </View>
-        )}
-      </Animated.View>
-    </View>
+        </Animated.View>
+
+        {/* ── WHAT'S NEXT STEPS CARD ── */}
+        <Animated.View
+          style={[
+            styles.stepsCard,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <View style={styles.stepsCardHeader}>
+            <View style={styles.stepsCardIcon}>
+              <Ionicons name="list" size={14} color={C.violet} />
+            </View>
+            <Text style={styles.stepsCardTitle}>What's Next?</Text>
+          </View>
+
+          {[
+            {
+              num: "1",
+              label: "Share OTP",
+              desc: "Give the 4-digit OTP to your driver for verification",
+              active: true,
+            },
+            {
+              num: "2",
+              label: "Ride Begins",
+              desc: "Your ride will start after OTP verification",
+              active: false,
+            },
+            {
+              num: "3",
+              label: "Track Live",
+              desc: "Track your ride in real-time on the map",
+              active: false,
+            },
+          ].map((step, index) => (
+            <View key={step.num} style={styles.stepRow}>
+              <View style={styles.stepLeft}>
+                {step.active ? (
+                  <LinearGradient
+                    colors={GRAD.primary}
+                    style={styles.stepNumActive}
+                  >
+                    <Text style={styles.stepNumActiveText}>{step.num}</Text>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.stepNumInactive}>
+                    <Text style={styles.stepNumInactiveText}>{step.num}</Text>
+                  </View>
+                )}
+                {index < 2 && <View style={styles.stepConnector} />}
+              </View>
+
+              <View style={styles.stepContent}>
+                <View style={styles.stepContentHeader}>
+                  <Text
+                    style={[
+                      styles.stepLabel,
+                      !step.active && styles.stepLabelInactive,
+                    ]}
+                  >
+                    {step.label}
+                  </Text>
+                  {step.active && (
+                    <View style={styles.stepNowBadge}>
+                      <View style={styles.stepNowDot} />
+                      <Text style={styles.stepNowText}>NOW</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.stepDesc}>{step.desc}</Text>
+              </View>
+            </View>
+          ))}
+        </Animated.View>
+
+        {/* ── CANCEL WARNING ── */}
+        <Animated.View
+          style={[
+            styles.cancelWarning,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <LinearGradient
+            colors={[C.warningBg, "#FEFCE8"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <Ionicons name="warning-outline" size={16} color={C.warning} />
+          <Text style={styles.cancelWarningText}>
+            Cancellation charges may apply as your driver has arrived
+          </Text>
+        </Animated.View>
+
+        <View style={{ height: 120 }} />
+      </ScrollView>
+    </ScreenWrapper>
   );
 }
 
 // ==================== STYLES ====================
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
 
-  // Loading
-  loadingContainer: {
+  // ─── Loader ───
+  loaderContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: COLORS.white,
+    backgroundColor: C.bg,
   },
-  loadingContent: {
+  loaderCard: {
+    backgroundColor: C.white,
+    borderRadius: R.xl,
+    padding: SP.xxxl,
     alignItems: "center",
+    shadowColor: C.violet,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
+    width: "75%",
   },
-  loadingSpinner: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: COLORS.primaryLight,
+  loaderIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: SPACING.xl,
+    shadowColor: C.violet,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 6,
   },
-  loadingTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: COLORS.textDark,
-    marginBottom: SPACING.xs,
-  },
-  loadingSubtitle: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-  },
-
-  // Map
-  map: {
-    flex: 1,
-  },
-
-  // Markers
-  pickupMarkerWrapper: {
-    width: 60,
-    height: 60,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  pickupPulse: {
-    position: "absolute",
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.primaryLight,
-  },
-  pickupMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: COLORS.white,
-    justifyContent: "center",
-    alignItems: "center",
-    ...SHADOWS.medium,
-  },
-  pickupMarkerInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: COLORS.primary,
-  },
-  driverMarkerWrapper: {
-    alignItems: "center",
-  },
-  driverMarker: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.driverBlue,
-    justifyContent: "center",
-    alignItems: "center",
-    ...SHADOWS.medium,
-  },
-  driverMarkerShadow: {
-    width: 20,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "rgba(0,0,0,0.15)",
-    marginTop: 4,
-  },
-
-  // Top Bar
-  topBar: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.md,
-    zIndex: 10,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.white,
-    justifyContent: "center",
-    alignItems: "center",
-    ...SHADOWS.medium,
-  },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.full,
-    backgroundColor: COLORS.white,
-    ...SHADOWS.small,
-  },
-  statusBadgeText: {
-    fontSize: 13,
-    fontWeight: "600",
-    marginLeft: SPACING.sm,
-  },
-  shareButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.white,
-    justifyContent: "center",
-    alignItems: "center",
-    ...SHADOWS.medium,
-  },
-
-  // ETA Card
-  etaCard: {
-    position: "absolute",
-    top: height * 0.15,
-    right: SPACING.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.white,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.lg,
-    ...SHADOWS.large,
-  },
-  etaContent: {
-    alignItems: "center",
-  },
-  etaTime: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: COLORS.primary,
-  },
-  etaDistance: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: COLORS.textDark,
-  },
-  etaUnit: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    fontWeight: "500",
-    marginTop: 2,
-  },
-  etaDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: COLORS.divider,
-    marginHorizontal: SPACING.lg,
-  },
-
-  // Bottom Sheet
-  bottomSheet: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: RADIUS.xxl,
-    borderTopRightRadius: RADIUS.xxl,
-    paddingTop: SPACING.md,
-    ...SHADOWS.large,
-  },
-  sheetHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: COLORS.lightGray,
-    alignSelf: "center",
-    marginBottom: SPACING.lg,
-  },
-
-  // Status Header
-  statusHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: SPACING.xl,
-    marginBottom: SPACING.lg,
-  },
-  statusIconBg: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  statusTextContainer: {
-    marginLeft: SPACING.md,
-    flex: 1,
-  },
-  statusTitle: {
+  loaderTitle: {
     fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.textDark,
+    fontWeight: "800",
+    color: C.textDark,
+    marginTop: SP.lg,
+    letterSpacing: -0.3,
   },
-  statusSubtitle: {
+  loaderSub: {
     fontSize: 13,
-    color: COLORS.textSecondary,
-    marginTop: 2,
+    color: C.textLight,
+    fontWeight: "500",
+    marginTop: SP.xs,
   },
 
-  // Driver Card
-  driverCard: {
-    marginHorizontal: SPACING.lg,
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.xl,
-    padding: SPACING.lg,
-    marginBottom: SPACING.lg,
-  },
-  driverInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  driverAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.primary,
-    justifyContent: "center",
-    alignItems: "center",
-    position: "relative",
-  },
-  driverPhoto: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-  },
-  driverInitial: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: COLORS.white,
-  },
-  verifiedBadge: {
-    position: "absolute",
-    bottom: -2,
-    right: -2,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: COLORS.success,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: COLORS.white,
-  },
-  driverDetails: {
-    flex: 1,
-    marginLeft: SPACING.md,
-  },
-  driverName: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: COLORS.textDark,
-  },
-  ratingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 4,
-  },
-  ratingText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.textDark,
-    marginLeft: 4,
-  },
-  tripCount: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginLeft: 6,
-  },
-  actionButtons: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  actionButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: COLORS.primaryLight,
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: SPACING.sm,
-  },
-  callButton: {
-    backgroundColor: COLORS.primary,
-  },
-  vehicleInfo: {
+  // ─── Header ───
+  header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: SPACING.lg,
-    paddingTop: SPACING.md,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
+    paddingTop: SP.md,
+    paddingBottom: SP.md,
+    paddingHorizontal: SP.lg,
+    backgroundColor: C.white,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
   },
-  vehicleDetails: {
-    flexDirection: "row",
+  headerBackBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: C.surface,
+    justifyContent: "center",
     alignItems: "center",
   },
-  vehicleText: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    marginLeft: SPACING.sm,
+  headerCenter: { alignItems: "center", flex: 1 },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: C.textDark,
+    letterSpacing: -0.3,
   },
-  vehicleNumberBadge: {
-    backgroundColor: COLORS.dark,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderRadius: RADIUS.sm,
+  liveBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: C.textDark,
+    paddingHorizontal: SP.sm + 2,
+    paddingVertical: 3,
+    borderRadius: R.full,
+    marginTop: 4,
   },
-  vehicleNumber: {
-    fontSize: 13,
+  liveDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: C.success,
+  },
+  liveText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: C.white,
+    letterSpacing: 0.8,
+  },
+  helpPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: SP.md,
+    paddingVertical: 8,
+    borderRadius: R.full,
+    backgroundColor: C.primarySoft,
+  },
+  helpText: {
+    fontSize: 12,
     fontWeight: "700",
-    color: COLORS.white,
-    letterSpacing: 0.5,
+    color: C.violet,
   },
 
-  // OTP Section
-  otpSection: {
-    marginHorizontal: SPACING.lg,
-    backgroundColor: COLORS.warningBg,
-    borderRadius: RADIUS.xl,
-    padding: SPACING.lg,
-    marginBottom: SPACING.lg,
+  // ─── Scroll ───
+  scrollContent: {
+    paddingHorizontal: SP.lg,
+    paddingTop: SP.xl,
+    paddingBottom: SP.xxxl,
+    alignItems: "center",
+  },
+
+  // ─── Hero ───
+  heroSection: {
+    alignItems: "center",
+    marginBottom: SP.xl,
+    position: "relative",
+    width: "100%",
+  },
+  heroRingOuter: {
+    position: "absolute",
+    top: -16,
+    width: 122,
+    height: 122,
+    borderRadius: 61,
+    backgroundColor: C.primarySoft,
+  },
+  heroCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+    borderWidth: 3,
+    borderColor: "rgba(255,255,255,0.3)",
+    shadowColor: C.violet,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 10,
+    marginBottom: SP.lg,
+  },
+  heroCircleDecor: {
+    position: "absolute",
+    top: -20,
+    right: -20,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: C.textDark,
+    letterSpacing: -0.5,
+    marginBottom: SP.xs,
+  },
+  heroSubtitle: {
+    fontSize: 14,
+    color: C.textLight,
+    fontWeight: "500",
+    textAlign: "center",
+    marginBottom: SP.md,
+  },
+  heroBadgeRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+  },
+  heroBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SP.xs,
+    backgroundColor: C.successBg,
+    paddingHorizontal: SP.md,
+    paddingVertical: 6,
+    borderRadius: R.full,
     borderWidth: 1,
-    borderColor: COLORS.warning + "30",
+    borderColor: C.success + "30",
   },
-  otpHeader: {
+  heroBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: C.successDark,
+  },
+
+  // ─── OTP Card ───
+  otpCard: {
+    width: "100%",
+    backgroundColor: C.card,
+    borderRadius: R.lg,
+    marginBottom: SP.md,
+    borderWidth: 1,
+    borderColor: C.border,
+    overflow: "hidden",
+    shadowColor: C.violet,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  otpCardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: SPACING.md,
+    gap: SP.sm,
+    paddingHorizontal: SP.lg,
+    paddingVertical: SP.md,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
   },
-  otpIconBg: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: COLORS.warning + "20",
+  otpCardHeaderIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: C.white,
     justifyContent: "center",
     alignItems: "center",
   },
-  otpLabel: {
+  otpCardHeaderTitle: {
+    flex: 1,
     fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.warningDark,
-    marginLeft: SPACING.sm,
+    fontWeight: "800",
+    color: C.violet,
   },
-  otpContainer: {
+  otpSecureBadge: {
     flexDirection: "row",
-    justifyContent: "center",
-    marginBottom: SPACING.md,
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: C.successBg,
+    paddingHorizontal: SP.sm,
+    paddingVertical: 3,
+    borderRadius: R.full,
   },
-  otpDigitBox: {
-    width: 48,
-    height: 56,
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.md,
+  otpSecureText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: C.successDark,
+  },
+  otpBody: {
+    padding: SP.xl,
+    alignItems: "center",
+  },
+  otpRow: {
+    flexDirection: "row",
+    gap: SP.sm,
+    marginBottom: SP.md,
+  },
+  otpBox: {
+    width: 58,
+    height: 66,
+    borderRadius: R.md,
     justifyContent: "center",
     alignItems: "center",
-    marginHorizontal: SPACING.xs,
-    ...SHADOWS.small,
+    shadowColor: C.violet,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
   },
   otpDigit: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: COLORS.textDark,
+    fontSize: 28,
+    fontWeight: "900",
+    color: C.white,
+    letterSpacing: -1,
   },
-  otpNote: {
+  otpHint: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: C.textLight,
+    fontWeight: "500",
     textAlign: "center",
   },
 
-  // Quick Actions
-  quickActions: {
+  // ─── Driver Card ───
+  driverCard: {
+    width: "100%",
     flexDirection: "row",
-    justifyContent: "space-around",
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
-  },
-  quickActionItem: {
     alignItems: "center",
-    flex: 1,
+    backgroundColor: C.card,
+    borderRadius: R.lg,
+    padding: SP.lg,
+    marginBottom: SP.md,
+    borderWidth: 1,
+    borderColor: C.border,
+    shadowColor: C.violet,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  quickActionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  driverAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: SPACING.sm,
+    marginRight: SP.md,
+    shadowColor: C.violet,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
   },
-  quickActionText: {
+  driverAvatarText: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: C.white,
+  },
+  driverInfo: { flex: 1 },
+  driverName: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: C.textDark,
+    marginBottom: 2,
+  },
+  driverVehicle: {
     fontSize: 12,
+    color: C.textLight,
     fontWeight: "500",
-    color: COLORS.textSecondary,
+    marginBottom: 4,
   },
-
-  // Arrived Banner
-  arrivedBanner: {
+  driverRatingRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.successBg,
-    marginHorizontal: SPACING.lg,
-    marginTop: SPACING.md,
-    padding: SPACING.lg,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.success + "30",
+    gap: 4,
   },
-  arrivedIconBg: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.success + "20",
+  driverRating: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: C.textDark,
+  },
+  ratingDivider: {
+    width: 1,
+    height: 10,
+    backgroundColor: C.borderMid,
+  },
+  driverTrips: {
+    fontSize: 11,
+    color: C.textLight,
+    fontWeight: "500",
+  },
+  driverActions: {
+    gap: SP.sm,
+  },
+  callBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: C.violet,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: C.violet,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  msgBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: C.primarySoft,
     justifyContent: "center",
     alignItems: "center",
   },
-  arrivedTextContainer: {
-    marginLeft: SPACING.md,
-    flex: 1,
-  },
-  arrivedTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.successDark,
-  },
-  arrivedSubtitle: {
-    fontSize: 12,
-    color: COLORS.success,
-    marginTop: 2,
-  },
 
-  // Progress Banner
-  progressBanner: {
+  // ─── Payment Card ───
+  paymentCard: {
+    width: "100%",
+    backgroundColor: C.card,
+    borderRadius: R.lg,
+    marginBottom: SP.md,
+    borderWidth: 1,
+    borderColor: C.border,
+    overflow: "hidden",
+    shadowColor: C.violet,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  paymentCardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.infoBg,
-    marginHorizontal: SPACING.lg,
-    marginTop: SPACING.md,
-    padding: SPACING.lg,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.info + "30",
+    gap: SP.sm,
+    paddingHorizontal: SP.lg,
+    paddingVertical: SP.md,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
   },
-  progressIconBg: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.info + "20",
+  paymentCardHeaderIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: C.white,
     justifyContent: "center",
     alignItems: "center",
   },
-  progressTextContainer: {
-    marginLeft: SPACING.md,
+  paymentCardTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: C.violet,
+  },
+  paymentStrip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: SP.lg,
+    paddingVertical: SP.md,
+  },
+  paymentStripItem: {
     flex: 1,
+    alignItems: "center",
   },
-  progressTitle: {
-    fontSize: 15,
+  paymentStripLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 4,
+  },
+  paymentStripLabelText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: C.textLight,
+  },
+  paymentStripValue: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  paymentStripDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: C.borderMid,
+  },
+
+  // ─── Steps Card ───
+  stepsCard: {
+    width: "100%",
+    backgroundColor: C.card,
+    borderRadius: R.lg,
+    padding: SP.lg,
+    marginBottom: SP.md,
+    borderWidth: 1,
+    borderColor: C.border,
+    shadowColor: C.violet,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  stepsCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SP.sm,
+    marginBottom: SP.lg,
+  },
+  stepsCardIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: C.primarySoft,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  stepsCardTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: C.textDark,
+  },
+  stepRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: SP.sm,
+  },
+  stepLeft: {
+    alignItems: "center",
+    marginRight: SP.md,
+    width: 24,
+  },
+  stepNumActive: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: C.violet,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  stepNumActiveText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: C.white,
+  },
+  stepNumInactive: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: C.white,
+    borderWidth: 2,
+    borderColor: C.borderMid,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  stepNumInactiveText: {
+    fontSize: 11,
     fontWeight: "700",
-    color: COLORS.info,
+    color: C.textLight,
   },
-  progressSubtitle: {
+  stepConnector: {
+    width: 2,
+    height: 22,
+    backgroundColor: C.border,
+    marginTop: 4,
+  },
+  stepContent: {
+    flex: 1,
+    paddingTop: 3,
+    paddingBottom: SP.md,
+  },
+  stepContentHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SP.sm,
+    marginBottom: 2,
+  },
+  stepLabel: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: C.textDark,
+  },
+  stepLabelInactive: {
+    color: C.textLight,
+    fontWeight: "600",
+  },
+  stepNowBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: C.primarySoft,
+    paddingHorizontal: SP.sm,
+    paddingVertical: 2,
+    borderRadius: R.full,
+  },
+  stepNowDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: C.violet,
+  },
+  stepNowText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: C.violet,
+    letterSpacing: 0.5,
+  },
+  stepDesc: {
     fontSize: 12,
-    color: COLORS.info,
-    marginTop: 2,
+    color: C.textLight,
+    fontWeight: "500",
+    lineHeight: 16,
+  },
+
+  // ─── Cancel Warning ───
+  cancelWarning: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SP.sm,
+    borderRadius: R.md,
+    padding: SP.md,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: C.warning + "30",
+    marginBottom: SP.md,
+  },
+  cancelWarningText: {
+    flex: 1,
+    fontSize: 12,
+    color: C.warning,
+    fontWeight: "600",
+    lineHeight: 17,
+  },
+
+  // ─── Bottom Bar ───
+  bottomBar: {
+    paddingTop: SP.md,
+    paddingBottom: Platform.OS === "ios" ? SP.lg : SP.lg,
+    paddingHorizontal: SP.lg,
+    backgroundColor: C.white,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+    alignItems: "center",
+    shadowColor: C.shadow,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 20,
+  },
+  cancelGoldBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: C.gold,
+    paddingVertical: SP.md + 2,
+    borderRadius: R.full,
+    gap: SP.sm,
+    shadowColor: C.gold,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  cancelGoldBtnIconLeft: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "rgba(0,0,0,0.12)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cancelGoldBtnText: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: C.textDark,
+    letterSpacing: 0.3,
+  },
+  cancelGoldBtnIconRight: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "rgba(0,0,0,0.12)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cancelNote: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: C.textLight,
+    marginTop: SP.sm,
+    textAlign: "center",
   },
 });
